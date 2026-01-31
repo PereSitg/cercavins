@@ -1,35 +1,44 @@
 const admin = require('firebase-admin');
 
+// Inicialitzem la variable db fora per a un millor rendiment
 let db;
 
-if (!admin.apps.length) {
-  try {
-    const serviceAccount = JSON.parse(
-      process.env.FIREBASE_SERVICE_ACCOUNT.replace(/\\n/g, '\n')
-    );
-    admin.initializeApp({
-      credential: admin.credential.cert(serviceAccount)
-    });
-    db = admin.firestore();
-  } catch (error) {
-    console.error('Error Firebase:', error.message);
-  }
-} else {
-  db = admin.firestore();
-}
-
 module.exports = async (req, res) => {
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Mètode no permès' });
+  // 1. Seguretat: Només acceptem peticions POST
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Mètode no permès' });
+  }
 
   try {
+    // 2. Inicialització robusta de Firebase
+    if (!admin.apps.length) {
+      const serviceAccount = JSON.parse(
+        process.env.FIREBASE_SERVICE_ACCOUNT.replace(/\\n/g, '\n')
+      );
+      admin.initializeApp({
+        credential: admin.credential.cert(serviceAccount)
+      });
+    }
+    
+    // Assignem la base de dades cada vegada per evitar l'error de 'undefined'
+    db = admin.firestore();
+
     const { pregunta } = req.body;
+    if (!pregunta) {
+      return res.status(400).json({ resposta: "Falta la pregunta." });
+    }
+
+    // 3. Consulta a la teva col·lecció 'cercavins'
     const snapshot = await db.collection('cercavins').get();
-    let celler = 'Vins: ';
+    let celler = 'Vins disponibles:\n';
+    
     snapshot.forEach(doc => {
       const d = doc.data();
-      celler += `${d.nom} (${d.preu}), `;
+      // Usem els camps reals: nom, do i preu
+      celler += `- ${d.nom} de la DO ${d.do}. Preu: ${d.preu}\n`;
     });
 
+    // 4. Crida a Groq
     const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -39,18 +48,25 @@ module.exports = async (req, res) => {
       body: JSON.stringify({
         model: 'llama-3.3-70b-versatile',
         messages: [
-          { role: 'system', content: 'Ets el sommelier. Vins: ' + celler },
+          { 
+            role: 'system', 
+            content: `Ets el sommelier d'en Pere. Respon en català i sigues amable. Aquí tens la llista de vins: ${celler}` 
+          },
           { role: 'user', content: pregunta }
         ]
       })
     });
 
     const data = await response.json();
-    // AQUESTA LÍNIA ÉS LA QUE TREU L'UNDEFINED:
-    const textIA = data.choices?.[0]?.message?.content || "No tinc resposta.";
+    
+    // 5. Enviem la resposta neta a la web
+    const textIA = data.choices?.[0]?.message?.content || "No tinc resposta ara mateix.";
     
     res.status(200).json({ resposta: textIA });
+
   } catch (error) {
-    res.status(500).json({ resposta: "Error: " + error.message });
+    // Captura d'errors detallada per als logs de Vercel
+    console.error("Error detallat:", error.message);
+    res.status(500).json({ resposta: "Error de configuració: " + error.message });
   }
 };

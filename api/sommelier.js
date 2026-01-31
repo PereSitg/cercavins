@@ -1,121 +1,79 @@
-export const config = {
-  runtime: 'nodejs'
-}
+const admin = require('firebase-admin');
 
-const admin = require('firebase-admin')
+// Inicialitzem la variable de la base de dades fora per reutilitzar-la
+let db;
 
-// ----------------------
-// Fix per node-fetch ESM
-// ----------------------
-const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args))
-
-let db
-
-// ----------------------
-// Inicialització Firebase
-// ----------------------
 if (!admin.apps.length) {
   try {
-    const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)
+    // NETEJA DE LA CLAU: Crucial per evitar l'error "Unexpected token"
+    const serviceAccount = JSON.parse(
+      process.env.FIREBASE_SERVICE_ACCOUNT.replace(/\\n/g, '\n')
+    );
 
     admin.initializeApp({
       credential: admin.credential.cert(serviceAccount)
-    })
+    });
 
-    db = admin.firestore()
-    console.log('🔥 Firestore inicialitzat correctament!')
+    db = admin.firestore();
+    console.log('🔥 Firestore inicialitzat correctament!');
   } catch (error) {
-    console.error('❌ Error inicialitzant Firebase:', error)
+    console.error('❌ Error inicialitzant Firebase:', error.message);
   }
 } else {
-  db = admin.firestore()
-  console.log('🔥 Firestore ja estava inicialitzat!')
+  db = admin.firestore();
 }
 
 module.exports = async (req, res) => {
+  // Només acceptem preguntes per POST
   if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Mètode no permès' })
+    return res.status(405).json({ error: 'Mètode no permès' });
   }
 
   try {
-    if (!db) {
-      throw new Error('Firestore no inicialitzat')
-    }
-
-    const { pregunta } = req.body
+    const { pregunta } = req.body;
     if (!pregunta) {
-      return res.status(400).json({ error: 'Falta la pregunta' })
+      return res.status(400).json({ error: 'Falta la pregunta' });
     }
 
-    // ----------------------
-    // Log abans de la consulta
-    // ----------------------
-    console.log('Firestore object abans de consultar:', db)
-
-    const snapshot = await db.collection('cercavins').get()
-
-    let celler = 'Llista de vins de la base de dades:\n'
+    // 1. Llegim els teus vins reals de la col·lecció 'cercavins'
+    const snapshot = await db.collection('cercavins').get();
+    let celler = 'Llista de vins disponibles:\n';
+    
     snapshot.forEach(doc => {
-      const d = doc.data()
-      celler += `- ${d.nom} de la DO ${d.do}. Preu: ${d.preu}\n`
-    })
+      const d = doc.data();
+      // Agafem els camps 'nom', 'do' i 'preu' que hem vist a la teva consola
+      celler += `- ${d.nom || 'Vi'} de la DO ${d.do || 'No indicada'}. Preu: ${d.preu || 'Consultar'}\n`;
+    });
 
-    // ----------------------
-    // Crida a l'API Groq
-    // ----------------------
-    const response = await fetch(
-      'https://api.groq.com/openai/v1/chat/completions',
-      {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          model: 'llama-3.3-70b-versatile',
-          messages: [
-            {
-              role: 'system',
-              content:
-                `Ets el sommelier d'en Pere Badia. ` +
-                `Aquests són els vins reals del celler:\n${celler}\n` +
-                `Respon sempre en català de forma amable.`
-            },
-            { role: 'user', content: pregunta }
-          ]
-        })
-      }
-    )
+    // 2. Cridem a Groq amb el format correcte
+    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: 'llama-3.3-70b-versatile',
+        messages: [
+          {
+            role: 'system',
+            content: `Ets el sommelier d'en Pere Badia. Sigues amable i respon sempre en català. Utilitza aquesta llista de vins reals per respondre:\n${celler}`
+          },
+          { role: 'user', content: pregunta }
+        ]
+      })
+    });
 
-    const data = await response.json()
+    const data = await response.json();
 
-    // ----------------------
-    // Log complet de Groq
-    // ----------------------
-    console.log('🔥 Data completa de Groq:', JSON.stringify(data, null, 2))
+    // 3. Enviem la resposta a la teva web (index.html espera el camp 'resposta')
+    const textFinal = data.choices?.[0]?.message?.content || "Ho sento, no he pogut generar una resposta.";
+    
+    console.log('✅ Resposta enviada al client');
+    res.status(200).json({ resposta: textFinal });
 
-    // ----------------------
-    // Extracció flexible de la resposta
-    // ----------------------
-    let resposta = 'Sense resposta'
-
-    // Intentem diferents rutes habituals a Groq
-    if (data?.results?.length > 0) {
-      const firstResult = data.results[0]
-      resposta =
-        firstResult.output_text ||
-        firstResult.text ||
-        firstResult.content ||
-        resposta
-    } else if (data?.choices?.length > 0) {
-      resposta = data.choices[0]?.message?.content || resposta
-    }
-
-    console.log('✅ Resposta final del sommelier:', resposta)
-
-    res.status(200).json({ resposta })
   } catch (error) {
-    console.error('❌ Error API:', error)
-    res.status(500).json({ error: error.message })
+    console.error('❌ Error a la funció sommelier:', error.message);
+    res.status(500).json({ error: 'Error intern: ' + error.message });
   }
-}
+};

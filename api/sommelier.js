@@ -7,22 +7,25 @@ const fetch = require('node-fetch')
 
 let db
 
+// ----------------------
+// Inicialització Firebase
+// ----------------------
 if (!admin.apps.length) {
   try {
-    const serviceAccount = JSON.parse(
-      process.env.FIREBASE_SERVICE_ACCOUNT
-    )
+    const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)
 
     admin.initializeApp({
       credential: admin.credential.cert(serviceAccount)
     })
 
     db = admin.firestore()
+    console.log('🔥 Firestore inicialitzat correctament!')
   } catch (error) {
-    console.error('🔥 Error inicialitzant Firebase:', error)
+    console.error('❌ Error inicialitzant Firebase:', error)
   }
 } else {
   db = admin.firestore()
+  console.log('🔥 Firestore ja estava inicialitzat!')
 }
 
 module.exports = async (req, res) => {
@@ -39,6 +42,11 @@ module.exports = async (req, res) => {
     if (!pregunta) {
       return res.status(400).json({ error: 'Falta la pregunta' })
     }
+
+    // ----------------------
+    // Log abans de la consulta
+    // ----------------------
+    console.log('Firestore object abans de consultar:', db)
 
     const snapshot = await db.collection('cercavins').get()
 

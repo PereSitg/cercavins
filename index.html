@@ -3,138 +3,152 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CercaVins - Comparador de Sitges</title>
-    <link rel="stylesheet" href="style.css">
+    <title>SommelierDigital - Pere Badia i Lorenz</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;800&display=swap" rel="stylesheet">
     <style>
-        .vi-preu-bloc { background: rgba(46, 204, 113, 0.2); padding: 12px; border-radius: 8px; margin: 10px 0; border: 1px solid #2ecc71; }
-        .vi-preu-min { font-size: 1.6rem; font-weight: bold; color: #2ecc71; display: block; }
-        .vi-botiga-guanyadora { font-size: 0.75rem; color: #ecf0f1; text-transform: uppercase; font-weight: bold; }
-        .seccio-altres { margin-top: 15px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 10px; }
-        .item-comparativa { display: flex; justify-content: space-between; font-size: 0.85rem; color: #ecf0f1; padding: 5px 0; }
-        .item-comparativa strong { color: #3498db; }
-        
-        /* ESTILS DEL XAT SOMMELIER */
-        #sommelier-chat { background: #2c3e50; padding: 20px; border-radius: 8px; margin-top: 20px; color: white; }
-        #chat-window { height: 150px; overflow-y: auto; border: 1px solid #444; padding: 10px; margin-bottom: 10px; background: #1a252f; }
-        .chat-input-area { display: flex; gap: 10px; }
-        #chat-input { flex: 1; padding: 10px; border-radius: 4px; border: none; }
-        #chat-btn { padding: 10px 20px; background: #e74c3c; color: white; border: none; cursor: pointer; border-radius: 4px; }
+        :root {
+            --ruby-wine: #702132;
+            --blanc-pur: #ffffff;
+            --negre-pur: #000000;
+        }
+
+        body {
+            background: radial-gradient(circle, #800020 0%, #4a0012 100%);
+            color: var(--blanc-pur);
+            font-family: 'Plus Jakarta Sans', Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        /* Capçalera exactament com la teva foto */
+        header {
+            text-align: center;
+            padding: 80px 20px 20px 20px;
+        }
+
+        header h1 {
+            font-size: 4rem;
+            font-weight: 800;
+            text-transform: none; /* SommelierDigital tal qual */
+            letter-spacing: -2px;
+            margin: 0;
+        }
+
+        header p {
+            font-size: 0.85rem;
+            margin-top: 10px;
+            letter-spacing: 5px;
+            opacity: 0.8;
+            text-transform: uppercase;
+        }
+
+        /* Àrea del cercador (Estil Google) */
+        .search-area {
+            width: 100%;
+            max-width: 600px;
+            margin-top: 40px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .search-label {
+            font-size: 1.2rem;
+            opacity: 0.9;
+        }
+
+        #chat-input {
+            width: 100%;
+            padding: 18px 30px;
+            border-radius: 50px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            font-size: 1.1rem;
+            text-align: center;
+            outline: none;
+            transition: 0.3s;
+        }
+
+        #chat-input:focus {
+            background: rgba(255, 255, 255, 0.2);
+            box-shadow: 0 0 20px rgba(255, 255, 255, 0.1);
+        }
+
+        #chat-btn {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            padding: 10px 30px;
+            border-radius: 50px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: 0.3s;
+        }
+
+        #chat-btn:hover {
+            background: white;
+            color: var(--ruby-wine);
+        }
+
+        /* Finestra de respostes elegant (Sota la barra) */
+        #chat-window {
+            max-width: 700px;
+            width: 90%;
+            margin-top: 30px;
+            text-align: center;
+            font-size: 1.1rem;
+            line-height: 1.6;
+            color: #f1f1f1;
+        }
+
+        .pensant { font-style: italic; opacity: 0.6; }
+
+        footer {
+            margin-top: auto;
+            padding: 40px;
+            opacity: 0.6;
+            font-size: 0.8rem;
+            letter-spacing: 2px;
+        }
     </style>
 </head>
 <body>
 
     <header>
-        <h1>Cerca<span>Vins</span> 2026</h1>
-        <p>El teu comparador de preus de vins i espumosos</p>
+        <h1>SommelierDigital</h1>
+        <p>BY PERE BADIA I LORENZ</p>
     </header>
 
-    <main class="container">
-        <section class="search-area">
-            <input type="text" id="user-input" placeholder="Busca per nom o D.O..." autocomplete="off">
-        </section>
+    <main class="search-area">
+        <label class="search-label">Que necessites...?</label>
+        <input type="text" id="chat-input" placeholder="" autocomplete="off">
+        <button id="chat-btn">Pregunta al Sommelier</button>
         
-        <section id="result-container"></section>
-
-        <section id="sommelier-chat">
-            <h3>🍷 Pregunta al Sommelier Digital</h3>
-            <div id="chat-window">Benvingut! Soc el sommelier d'en Pere. En què et puc ajudar?</div>
-            <div class="chat-input-area">
-                <input type="text" id="chat-input" placeholder="Quin vi em recomanes per un peix?">
-                <button id="chat-btn">Enviar</button>
+        <div id="chat-window">
             </div>
-        </section>
     </main>
 
     <footer>
-        <p>Creat per Pere Badia i Lorenz &copy; 2026</p>
+        BY PERE BADIA I LORENZ &copy; 2026
     </footer>
 
     <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        const input = document.getElementById('chat-input');
+        const btn = document.getElementById('chat-btn');
+        const windowBox = document.getElementById('chat-window');
 
-        const firebaseConfig = {
-            apiKey: "AIzaSyBtaSxNafKFmK68jhv_szJYaiY8FNjd5gc",
-            authDomain: "comparavins.firebaseapp.com",
-            projectId: "comparavins",
-            storageBucket: "comparavins.firebasestorage.app",
-            messagingSenderId: "871475610972",
-            appId: "1:871475610972:web:95b045cf2f9d925c0a6d99"
-        };
-
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
-        let vinsCache = [];
-
-        function normalitzar(text) {
-            if (!text) return "";
-            return String(text).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-        }
-
-        async function carregarDades() {
-            try {
-                const querySnapshot = await getDocs(collection(db, "vins"));
-                vinsCache = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                console.log("💾 Dades carregades.");
-            } catch (e) { console.error(e); }
-        }
-
-        function pintarCards(llista) {
-            const container = document.getElementById('result-container');
-            container.innerHTML = ""; 
-            const agrupats = {};
-            llista.forEach(v => {
-                const clau = normalitzar(v.nom);
-                if (!agrupats[clau]) {
-                    agrupats[clau] = { ...v, totes_opcions: [...(v.comparativa || [])] };
-                } else {
-                    if (v.comparativa) {
-                        v.comparativa.forEach(novaOp => {
-                            const existeixOp = agrupats[clau].totes_opcions.find(o => o.botiga === novaOp.botiga);
-                            if (!existeixOp) agrupats[clau].totes_opcions.push(novaOp);
-                        });
-                    }
-                    if (Number(v.preu_min) < Number(agrupats[clau].preu_min)) {
-                        agrupats[clau].preu_min = v.preu_min;
-                        agrupats[clau].botiga_min = v.botiga_min;
-                    }
-                }
-            });
-
-            Object.values(agrupats).forEach(v => {
-                const card = document.createElement('div');
-                card.className = 'vi-card';
-                card.innerHTML = `
-                    <div class="vi-imatge"><img src="${v.imatge}" onerror="this.src='https://via.placeholder.com/150?text=Vi'"></div>
-                    <div class="vi-contingut">
-                        <span class="vi-do">${v.do || ''}</span>
-                        <h2 class="vi-titol">${v.nom}</h2>
-                        <div class="vi-preu-bloc">
-                            <span class="vi-botiga-guanyadora">🏆 Millor preu a ${v.botiga_min}</span>
-                            <span class="vi-preu-min">${Number(v.preu_min).toFixed(2)} €</span>
-                        </div>
-                    </div>`;
-                container.appendChild(card);
-            });
-        }
-
-        document.getElementById('user-input').addEventListener('input', (e) => {
-            const t = normalitzar(e.target.value);
-            if (t.length < 3) { document.getElementById('result-container').innerHTML = ""; return; }
-            const filtrats = vinsCache.filter(v => normalitzar(v.nom).includes(t) || normalitzar(v.do).includes(t)).slice(0, 50);
-            pintarCards(filtrats);
-        });
-
-        // --- CODI PER CONNECTAR EL XAT AMB VERCEL ---
-        document.getElementById('chat-btn').addEventListener('click', async () => {
-            const input = document.getElementById('chat-input');
-            const window = document.getElementById('chat-window');
+        btn.addEventListener('click', async () => {
             const pregunta = input.value;
             if (!pregunta) return;
 
-            window.innerHTML += `<br><b>Tu:</b> ${pregunta}`;
+            windowBox.innerHTML = `<p class="pensant">El sommelier està pensant...</p>`;
             input.value = "";
-            window.innerHTML += `<br><i>Pensant...</i>`;
 
             try {
                 const res = await fetch('/api/sommelier', {
@@ -143,15 +157,16 @@
                     body: JSON.stringify({ pregunta })
                 });
                 const data = await res.json();
-                window.innerHTML = window.innerHTML.replace('<br><i>Pensant...</i>', '');
-                window.innerHTML += `<br><b>Sommelier:</b> ${data.resposta}`;
+                windowBox.innerHTML = `<p>${data.resposta}</p>`;
             } catch (e) {
-                window.innerHTML += `<br><b>Error:</b> No s'ha pogut connectar amb el sommelier.`;
+                windowBox.innerHTML = `<p>Error: No s'ha pogut connectar amb el sommelier.</p>`;
             }
-            window.scrollTop = window.scrollHeight;
         });
 
-        carregarDades();
+        // Permetre enviar amb la tecla Enter
+        input.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') btn.click();
+        });
     </script>
 </body>
 </html>

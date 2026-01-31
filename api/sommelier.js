@@ -57,7 +57,7 @@ module.exports = async (req, res) => {
         messages: [
           {
             role: 'system',
-            content: `Ets el sommelier d'en Pere Badia. Sigues amable i respon sempre en català. Utilitza aquesta llista de vins reals per respondre:\n${celler}`
+            content: `Ets el sommelier. Sigues amable i respon sempre en català. Utilitza aquesta llista de vins reals per respondre:\n${celler}`
           },
           { role: 'user', content: pregunta }
         ]
@@ -77,3 +77,4 @@ module.exports = async (req, res) => {
     res.status(500).json({ error: 'Error intern: ' + error.message });
   }
 };
+

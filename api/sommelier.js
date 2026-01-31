@@ -1,19 +1,21 @@
 const admin = require('firebase-admin');
 
 if (!admin.apps.length) {
+  // Arreglem la clau de Firebase perquè Vercel la llegeixi bé
   const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT.replace(/\\n/g, '\n'));
   admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
 }
 
 const db = admin.firestore();
 
+// AQUEST ÉS EL FORMAT CORRECTE PER A VERCEL
 module.exports = async (req, res) => {
-  if (req.method !== "POST") return res.status(405).send("Mètode no permès");
+  if (req.method !== "POST") return res.status(405).json({ error: "Mètode no permès" });
   
   try {
     const { pregunta } = req.body;
     const snapshot = await db.collection('cercavins').get();
-    let celler = "Vins:\n";
+    let celler = "Vins disponibles:\n";
     snapshot.forEach(doc => { 
         const d = doc.data();
         celler += `- ${d.nom} (${d.do}). Preu: ${d.preu_min}€\n`; 
@@ -28,7 +30,7 @@ module.exports = async (req, res) => {
       body: JSON.stringify({
         model: "llama-3.3-70b-versatile",
         messages: [
-          { role: "system", content: `Ets el sommelier d'en Pere Badia. Vins:\n${celler}` },
+          { role: "system", content: `Ets el sommelier d'en Pere Badia. Vins:\n${celler}\nRespon en català.` },
           { role: "user", content: pregunta }
         ]
       })

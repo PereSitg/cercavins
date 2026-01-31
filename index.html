@@ -5,12 +5,124 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SommelierDigital - Pere Badia i Lorenz</title>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css">
+    <style>
+        :root {
+            --ruby-wine: #702132;
+            --blanc-pur: #ffffff;
+            --ia-gold: #e6b97e; /* Color daurat per destacar la IA */
+        }
+
+        body {
+            background: radial-gradient(circle at center, #800020 0%, #3a000e 100%);
+            color: var(--blanc-pur);
+            font-family: 'Plus Jakarta Sans', Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        header {
+            text-align: center;
+            padding: 100px 20px 40px 20px;
+        }
+
+        header h1 {
+            font-size: 4rem;
+            font-weight: 800;
+            letter-spacing: -2px;
+            margin: 0;
+            line-height: 1.1;
+        }
+
+        /* Ressaltem la segona 'i' i la 'a' de Digital */
+        .ia-focus {
+            color: var(--ia-gold);
+            font-style: italic;
+            text-shadow: 0 0 15px rgba(230, 185, 126, 0.4);
+        }
+
+        header p {
+            font-size: 0.75rem;
+            margin-top: 15px;
+            letter-spacing: 6px;
+            opacity: 0.6;
+            text-transform: uppercase;
+        }
+
+        .search-area {
+            width: 90%;
+            max-width: 600px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            flex-grow: 1;
+        }
+
+        #chat-input {
+            width: 100%;
+            padding: 22px 35px;
+            border-radius: 100px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: rgba(255, 255, 255, 0.05);
+            color: white;
+            font-size: 1.1rem;
+            text-align: center;
+            outline: none;
+            transition: all 0.4s ease;
+            box-sizing: border-box;
+        }
+
+        #chat-input:focus {
+            background: rgba(255, 255, 255, 0.12);
+            border-color: rgba(255, 255, 255, 0.4);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+        }
+
+        #response-container {
+            width: 100%;
+            margin-top: 40px;
+            background: rgba(255, 255, 255, 0.07);
+            border-radius: 24px;
+            padding: 30px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(20px);
+            display: none; /* Amagat fins que hi hagi resposta */
+            animation: fadeIn 0.6s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        #chat-window {
+            font-size: 1.1rem;
+            line-height: 1.8;
+            text-align: center;
+        }
+
+        .pensant { font-style: italic; opacity: 0.5; }
+
+        footer {
+            padding: 60px 20px;
+            text-align: center;
+        }
+
+        footer p {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            opacity: 0.3;
+        }
+    </style>
 </head>
 <body>
 
     <header>
-        <h1>Digit<span class="ia-highlight">ia</span>l</h1>
+        <h1>SommelierDigit<span class="ia-focus">i</span>t<span class="ia-focus">a</span>l</h1>
         <p>BY PERE BADIA I LORENZ</p>
     </header>
 
@@ -36,12 +148,13 @@
                 const pregunta = input.value;
                 if (!pregunta) return;
 
+                // UI feedback
                 container.style.display = "block";
                 windowBox.innerHTML = `<p class="pensant">El sommelier està consultant el celler...</p>`;
                 input.value = "";
 
                 try {
-                    // Cridem a l'API de Vercel (on viuen les claus segures)
+                    // Petició segura al backend (Vercel)
                     const res = await fetch('/api/sommelier', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -50,7 +163,7 @@
                     const data = await res.json();
                     windowBox.innerHTML = `<p>${data.resposta}</p>`;
                 } catch (err) {
-                    windowBox.innerHTML = `<p>Error de connexió. Torna-ho a provar quan es restableixi la quota.</p>`;
+                    windowBox.innerHTML = `<p>El sommelier està descansant. Torna-ho a provar quan es restableixi la quota de Firebase.</p>`;
                 }
             }
         });

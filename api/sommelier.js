@@ -89,11 +89,26 @@ module.exports = async (req, res) => {
 
     const data = await response.json()
 
-    console.log('✅ Resposta Groq rebuda:', data)
+    // ----------------------
+    // Log complet de Groq
+    // ----------------------
+    console.log('🔥 Data completa de Groq:', JSON.stringify(data, null, 2))
 
-    res.status(200).json({
-      resposta: data.choices?.[0]?.message?.content ?? 'Sense resposta'
-    })
+    // ----------------------
+    // Extracció segura de la resposta
+    // ----------------------
+    let resposta = 'Sense resposta'
+
+    // Groq a vegades envia resposta en data?.results[0]?.content
+    if (data?.results?.length > 0 && data.results[0].content) {
+      resposta = data.results[0].content
+    } else if (data?.choices?.length > 0 && data.choices[0]?.message?.content) {
+      resposta = data.choices[0].message.content
+    }
+
+    console.log('✅ Resposta final del sommelier:', resposta)
+
+    res.status(200).json({ resposta })
   } catch (error) {
     console.error('❌ Error API:', error)
     res.status(500).json({ error: error.message })

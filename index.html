@@ -9,11 +9,10 @@
         :root {
             --ruby-wine: #702132;
             --blanc-pur: #ffffff;
-            --negre-pur: #000000;
         }
 
         body {
-            background: radial-gradient(circle, #800020 0%, #4a0012 100%);
+            background: radial-gradient(circle at center, #800020 0%, #3a000e 100%);
             color: var(--blanc-pur);
             font-family: 'Plus Jakarta Sans', Arial, sans-serif;
             margin: 0;
@@ -24,97 +23,96 @@
             align-items: center;
         }
 
-        /* Capçalera exactament com la teva foto */
+        /* Capçalera amb jerarquia de disseny */
         header {
             text-align: center;
-            padding: 80px 20px 20px 20px;
+            padding: 120px 20px 40px 20px;
         }
 
         header h1 {
-            font-size: 4rem;
+            font-size: 4.5rem;
             font-weight: 800;
-            text-transform: none; /* SommelierDigital tal qual */
-            letter-spacing: -2px;
+            letter-spacing: -3px;
             margin: 0;
+            line-height: 1;
         }
 
         header p {
-            font-size: 0.85rem;
-            margin-top: 10px;
-            letter-spacing: 5px;
-            opacity: 0.8;
+            font-size: 0.75rem;
+            margin-top: 15px;
+            letter-spacing: 6px; /* Firma de disseny */
+            opacity: 0.6;
             text-transform: uppercase;
         }
 
-        /* Àrea del cercador (Estil Google) */
+        /* Àrea del cercador estil Google */
         .search-area {
-            width: 100%;
+            width: 90%;
             max-width: 600px;
-            margin-top: 40px;
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: 20px;
-        }
-
-        .search-label {
-            font-size: 1.2rem;
-            opacity: 0.9;
+            flex-grow: 1;
         }
 
         #chat-input {
             width: 100%;
-            padding: 18px 30px;
-            border-radius: 50px;
-            border: 1px solid rgba(255, 255, 255, 0.3);
-            background: rgba(255, 255, 255, 0.1);
+            padding: 22px 35px;
+            border-radius: 100px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: rgba(255, 255, 255, 0.05);
             color: white;
             font-size: 1.1rem;
             text-align: center;
             outline: none;
-            transition: 0.3s;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            box-sizing: border-box;
         }
 
         #chat-input:focus {
-            background: rgba(255, 255, 255, 0.2);
-            box-shadow: 0 0 20px rgba(255, 255, 255, 0.1);
+            background: rgba(255, 255, 255, 0.12);
+            border-color: rgba(255, 255, 255, 0.4);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
         }
 
-        #chat-btn {
-            background: rgba(255, 255, 255, 0.1);
-            color: white;
-            border: 1px solid rgba(255, 255, 255, 0.3);
-            padding: 10px 30px;
-            border-radius: 50px;
-            cursor: pointer;
-            font-weight: bold;
-            transition: 0.3s;
+        /* Caixa de resposta elegant */
+        #response-container {
+            width: 100%;
+            margin-top: 40px;
+            background: rgba(255, 255, 255, 0.07);
+            border-radius: 24px;
+            padding: 30px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(20px);
+            display: none; /* S'activa amb la resposta */
+            animation: fadeIn 0.6s ease-out;
         }
 
-        #chat-btn:hover {
-            background: white;
-            color: var(--ruby-wine);
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
         }
 
-        /* Finestra de respostes elegant (Sota la barra) */
         #chat-window {
-            max-width: 700px;
-            width: 90%;
-            margin-top: 30px;
-            text-align: center;
             font-size: 1.1rem;
-            line-height: 1.6;
-            color: #f1f1f1;
+            line-height: 1.8;
+            text-align: center;
+            color: rgba(255, 255, 255, 0.95);
         }
 
-        .pensant { font-style: italic; opacity: 0.6; }
+        .pensant { font-style: italic; opacity: 0.5; }
 
+        /* Footer minimalista sense redundàncies */
         footer {
-            margin-top: auto;
-            padding: 40px;
-            opacity: 0.6;
-            font-size: 0.8rem;
+            padding: 60px 20px;
+            text-align: center;
+        }
+
+        footer p {
+            font-size: 0.7rem;
+            text-transform: uppercase;
             letter-spacing: 2px;
+            opacity: 0.3;
         }
     </style>
 </head>
@@ -126,46 +124,43 @@
     </header>
 
     <main class="search-area">
-        <label class="search-label">Que necessites...?</label>
-        <input type="text" id="chat-input" placeholder="" autocomplete="off">
-        <button id="chat-btn">Pregunta al Sommelier</button>
+        <input type="text" id="chat-input" placeholder="Que necessites..?" autocomplete="off">
         
-        <div id="chat-window">
-            </div>
+        <div id="response-container">
+            <div id="chat-window"></div>
+        </div>
     </main>
 
     <footer>
-        BY PERE BADIA I LORENZ &copy; 2026
+        <p>&copy; 2026 &middot; TOTS ELS DRETS RESERVATS</p>
     </footer>
 
     <script type="module">
         const input = document.getElementById('chat-input');
-        const btn = document.getElementById('chat-btn');
+        const container = document.getElementById('response-container');
         const windowBox = document.getElementById('chat-window');
 
-        btn.addEventListener('click', async () => {
-            const pregunta = input.value;
-            if (!pregunta) return;
+        input.addEventListener('keypress', async (e) => {
+            if (e.key === 'Enter') {
+                const pregunta = input.value;
+                if (!pregunta) return;
 
-            windowBox.innerHTML = `<p class="pensant">El sommelier està pensant...</p>`;
-            input.value = "";
+                container.style.display = "block";
+                windowBox.innerHTML = `<p class="pensant">El sommelier està consultant el celler...</p>`;
+                input.value = "";
 
-            try {
-                const res = await fetch('/api/sommelier', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ pregunta })
-                });
-                const data = await res.json();
-                windowBox.innerHTML = `<p>${data.resposta}</p>`;
-            } catch (e) {
-                windowBox.innerHTML = `<p>Error: No s'ha pogut connectar amb el sommelier.</p>`;
+                try {
+                    const res = await fetch('/api/sommelier', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ pregunta })
+                    });
+                    const data = await res.json();
+                    windowBox.innerHTML = `<p>${data.resposta}</p>`;
+                } catch (err) {
+                    windowBox.innerHTML = `<p>Error de connexió. Torna-ho a provar quan es restableixi la quota.</p>`;
+                }
             }
-        });
-
-        // Permetre enviar amb la tecla Enter
-        input.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') btn.click();
         });
     </script>
 </body>

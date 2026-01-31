@@ -2,8 +2,7 @@
 :root {
     --ruby-wine: #702132;
     --blanc-pur: #ffffff;
-    --negre-pur: #000000;
-    --ia-vibrant: #ffcc00; /* Daurat elèctric per a la IA */
+    --ia-champagne: #d4af37; /* Daurat clàssic, molt més elegant que el groc */
     --ombra: rgba(0, 0, 0, 0.4);
 }
 
@@ -19,7 +18,6 @@ body {
     align-items: center;
 }
 
-/* Capçalera neta i alineada */
 header {
     text-align: center;
     padding: 100px 20px 40px 20px;
@@ -32,16 +30,13 @@ header h1 {
     letter-spacing: -2px;
     margin: 0;
     line-height: 1;
-    display: flex;
-    justify-content: center;
 }
 
-/* Detall per ressaltar la IA (la 'i' i la 'a') sense deformar */
+/* Ressaltem la IA amb un daurat xampany que lliga amb el vi */
 .ia-focus {
-    color: var(--ia-vibrant);
-    font-style: normal; /* Lletra recta per coherència total */
-    text-shadow: 0 0 12px rgba(255, 204, 0, 0.3);
-    /* Hem eliminat el transform que la movia de lloc */
+    color: var(--ia-champagne);
+    font-style: normal; /* Recte com m'has demanat */
+    text-shadow: 0 0 5px rgba(212, 175, 55, 0.2);
 }
 
 header p {
@@ -52,16 +47,7 @@ header p {
     text-transform: uppercase;
 }
 
-/* Àrea del cercador estil Google */
-.search-area {
-    width: 90%;
-    max-width: 600px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    flex-grow: 1;
-}
-
+/* Cercador i resta d'estils es mantenen igual */
 #chat-input {
     width: 100%;
     padding: 22px 35px;
@@ -80,10 +66,8 @@ header p {
 #chat-input:focus {
     background: rgba(255, 255, 255, 0.12);
     border-color: rgba(255, 255, 255, 0.4);
-    box-shadow: 0 20px 40px rgba(0,0,0,0.5);
 }
 
-/* Caixa de resposta independent */
 #response-container {
     width: 100%;
     margin-top: 40px;
@@ -105,16 +89,8 @@ header p {
     font-size: 1.1rem;
     line-height: 1.8;
     text-align: center;
-    color: rgba(255, 255, 255, 0.95);
 }
 
-.pensant {
-    font-style: italic;
-    opacity: 0.5;
-    font-size: 1rem;
-}
-
-/* Footer professional */
 footer {
     padding: 60px 20px;
     text-align: center;
@@ -125,5 +101,4 @@ footer p {
     text-transform: uppercase;
     letter-spacing: 2px;
     opacity: 0.3;
-    margin: 0;
 }

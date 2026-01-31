@@ -13,7 +13,7 @@ module.exports = async (req, res) => {
   try {
     const { pregunta } = req.body;
     const snapshot = await db.collection('cercavins').get();
-    let celler = "Vins disponibles:\n";
+    let celler = "Vins:\n";
     snapshot.forEach(doc => { 
         const d = doc.data();
         celler += `- ${d.nom} (${d.do}). Preu: ${d.preu_min}€\n`; 

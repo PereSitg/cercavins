@@ -99,11 +99,13 @@ module.exports = async (req, res) => {
     // ----------------------
     let resposta = 'Sense resposta'
 
-    // Groq a vegades envia resposta en data?.results[0]?.content
-    if (data?.results?.length > 0 && data.results[0].content) {
-      resposta = data.results[0].content
-    } else if (data?.choices?.length > 0 && data.choices[0]?.message?.content) {
-      resposta = data.choices[0].message.content
+    // Prova diferents rutes dins del JSON
+    if (data?.results?.length > 0) {
+      // Molts casos Groq posa el text a results[0].content o results[0].text
+      resposta = data.results[0].content || data.results[0].text || resposta
+    } else if (data?.choices?.length > 0) {
+      // fallback per compatibilitat amb OpenAI style
+      resposta = data.choices[0]?.message?.content || resposta
     }
 
     console.log('✅ Resposta final del sommelier:', resposta)

@@ -8,15 +8,15 @@ if (!admin.apps.length) {
 const db = admin.firestore();
 
 module.exports = async (req, res) => {
-  if (req.method !== "POST") return res.status(405).json({ error: "Mètode no permès" });
+  if (req.method !== "POST") return res.status(405).send("Mètode no permès");
   
   try {
     const { pregunta } = req.body;
     const snapshot = await db.collection('cercavins').get();
-    let celler = "Vins disponibles:\n";
+    let celler = "Vins:\n";
     snapshot.forEach(doc => { 
-        const d = doc.data();
-        celler += `- ${d.nom} (${d.do}). Preu: ${d.preu_min}€\n`; 
+      const d = doc.data();
+      celler += `- ${d.nom} (${d.do}). Preu: ${d.preu_min}€\n`; 
     });
 
     const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {

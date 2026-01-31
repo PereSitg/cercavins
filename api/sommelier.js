@@ -1,6 +1,7 @@
 const admin = require('firebase-admin');
 
 if (!admin.apps.length) {
+  // Llegim la variable netejant possibles errors de format
   const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT.replace(/\\n/g, '\n'));
   admin.initializeApp({
     credential: admin.credential.cert(serviceAccount)
@@ -10,19 +11,18 @@ if (!admin.apps.length) {
 const db = admin.firestore();
 
 module.exports = async (req, res) => {
-  if (req.method !== "POST") return res.status(405).json({ error: "Mètode no permès" });
+  if (req.method !== "POST") return res.status(405).json({ error: "Només POST" });
 
   try {
     const { pregunta } = req.body;
     
-    // Fem servir el nom exactat de la teva col·lecció: 'cercavins'
+    // Consulta a la teva col·lecció 'cercavins'
     const snapshot = await db.collection('cercavins').get();
-    let celler = "Llista de vins disponibles:\n";
+    let celler = "Vins disponibles: ";
     
     snapshot.forEach(doc => {
       const d = doc.data();
-      // Adaptem els camps segons la teva captura: 'nom', 'do' i 'preu'
-      celler += `- ${d.nom || 'Vi'} de la DO ${d.do || 'desconeguda'}. Preu: ${d.preu || 'Consultar'}\n`;
+      celler += `${d.nom} (${d.preu}), `;
     });
 
     const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
@@ -34,7 +34,7 @@ module.exports = async (req, res) => {
       body: JSON.stringify({
         model: "llama-3.3-70b-versatile",
         messages: [
-          { role: "system", content: `Ets el sommelier d'en Pere Badia. Coneixes aquests vins:\n${celler}\nRespon sempre en català i sigues amable.` },
+          { role: "system", content: "Ets el sommelier d'en Pere Badia. Vins: " + celler },
           { role: "user", content: pregunta }
         ]
       })

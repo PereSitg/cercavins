@@ -3,7 +3,11 @@ export const config = {
 }
 
 const admin = require('firebase-admin')
-const fetch = require('node-fetch')
+
+// ----------------------
+// Fix per node-fetch ESM
+// ----------------------
+const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args))
 
 let db
 
@@ -56,6 +60,9 @@ module.exports = async (req, res) => {
       celler += `- ${d.nom} de la DO ${d.do}. Preu: ${d.preu}\n`
     })
 
+    // ----------------------
+    // Crida a l'API Groq
+    // ----------------------
     const response = await fetch(
       'https://api.groq.com/openai/v1/chat/completions',
       {
@@ -81,6 +88,8 @@ module.exports = async (req, res) => {
     )
 
     const data = await response.json()
+
+    console.log('✅ Resposta Groq rebuda:', data)
 
     res.status(200).json({
       resposta: data.choices?.[0]?.message?.content ?? 'Sense resposta'

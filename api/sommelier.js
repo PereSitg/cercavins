@@ -7,7 +7,6 @@ if (!admin.apps.length) {
 
 const db = admin.firestore();
 
-// AIXÒ ÉS EL QUE HA DE SORTIR A LA TEVA CAPTURA DE VERCEL:
 module.exports = async (req, res) => {
   if (req.method !== "POST") return res.status(405).send("Mètode no permès");
   

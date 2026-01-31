@@ -7,7 +7,7 @@
 }
 
 body {
-    background: radial-gradient(circle, #800020 0%, #4a0012 100%); /* El degradat de la teva foto */
+    background: radial-gradient(circle at center, #800020 0%, #3a000e 100%);
     color: var(--blanc-pur);
     font-family: 'Plus Jakarta Sans', Arial, sans-serif;
     margin: 0;
@@ -18,105 +18,104 @@ body {
     align-items: center;
 }
 
-/* Capçalera exactament com la teva imatge */
+/* Capçalera equilibrada */
 header {
     text-align: center;
-    padding: 100px 20px 20px 20px;
+    padding: 120px 20px 40px 20px;
 }
 
 header h1 {
-    font-size: 4rem;
+    font-size: 4.5rem;
     font-weight: 800;
-    text-transform: none; /* SommelierDigital tal qual */
-    letter-spacing: -2px;
+    text-transform: none;
+    letter-spacing: -3px;
     margin: 0;
+    line-height: 1;
 }
 
 header p {
-    font-size: 0.85rem;
-    margin-top: 5px;
-    letter-spacing: 5px;
-    opacity: 0.8;
-    text-transform: uppercase; /* BY PERE BADIA I LORENZ */
+    font-size: 0.75rem;
+    margin-top: 15px;
+    letter-spacing: 6px; /* Espaiat elegant per al teu nom */
+    opacity: 0.6;
+    text-transform: uppercase;
 }
 
-/* Àrea del cercador estil Google de la foto */
+/* Àrea del cercador estil Google */
 .search-area {
-    width: 100%;
-    max-width: 650px;
-    margin-top: 60px;
+    width: 90%;
+    max-width: 600px;
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 25px;
+    flex-grow: 1; /* Empeny el footer cap avall */
 }
 
-.search-label {
-    font-size: 1.3rem;
-    font-weight: 400;
-    opacity: 0.9;
-}
-
+/* La caixa d'entrada on escriu el client */
 #chat-input {
     width: 100%;
-    padding: 20px 35px;
-    border-radius: 50px;
-    border: 1px solid rgba(255, 255, 255, 0.3);
-    background: rgba(255, 255, 255, 0.1); /* Efecte vidre */
+    padding: 22px 35px;
+    border-radius: 100px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: rgba(255, 255, 255, 0.05);
     color: white;
     font-size: 1.1rem;
     text-align: center;
     outline: none;
-    transition: 0.3s;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    box-sizing: border-box;
     box-shadow: 0 10px 30px var(--ombra);
 }
 
 #chat-input:focus {
-    background: rgba(255, 255, 255, 0.2);
-    box-shadow: 0 15px 40px rgba(0,0,0,0.5);
+    background: rgba(255, 255, 255, 0.12);
+    border-color: rgba(255, 255, 255, 0.4);
+    box-shadow: 0 20px 40px rgba(0,0,0,0.5);
     transform: scale(1.01);
 }
 
-/* Botó d'acció sota la barra */
-#chat-btn {
-    background: rgba(255, 255, 255, 0.15);
-    color: white;
-    border: 1px solid rgba(255, 255, 255, 0.4);
-    padding: 12px 30px;
-    border-radius: 50px;
-    cursor: pointer;
-    font-weight: bold;
-    font-size: 0.9rem;
-    transition: 0.3s;
-}
-
-#chat-btn:hover {
-    background: var(--blanc-pur);
-    color: var(--ruby-wine);
-}
-
-/* Resposta del Sommelier (neta i centrada sota la barra) */
-#chat-window {
-    max-width: 750px;
-    width: 90%;
+/* Caixa de resposta independent i elegant */
+#response-container {
+    width: 100%;
     margin-top: 40px;
+    background: rgba(255, 255, 255, 0.07);
+    border-radius: 24px;
+    padding: 30px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(20px);
+    display: none; /* S'activa en rebre la resposta */
+    animation: fadeIn 0.6s ease-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+#chat-window {
+    font-size: 1.1rem;
+    line-height: 1.8;
     text-align: center;
-    font-size: 1.2rem;
-    line-height: 1.7;
-    color: #f8f8f8;
-    text-shadow: 1px 1px 5px rgba(0,0,0,0.3);
+    color: rgba(255, 255, 255, 0.95);
+    text-shadow: 1px 1px 5px rgba(0,0,0,0.2);
 }
 
 .pensant {
     font-style: italic;
-    opacity: 0.6;
+    opacity: 0.5;
     font-size: 1rem;
 }
 
+/* Footer professional i net */
 footer {
-    margin-top: auto;
-    padding: 50px;
-    opacity: 0.6;
-    font-size: 0.8rem;
+    padding: 60px 20px;
+    text-align: center;
+}
+
+footer p {
+    font-size: 0.7rem;
+    text-transform: uppercase;
     letter-spacing: 2px;
+    opacity: 0.3; /* Minimalisme pur */
+    margin: 0;
 }

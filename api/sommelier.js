@@ -7,6 +7,7 @@ if (!admin.apps.length) {
 
 const db = admin.firestore();
 
+// AIXÒ ÉS EL QUE HA DE SORTIR A LA TEVA CAPTURA DE VERCEL:
 module.exports = async (req, res) => {
   if (req.method !== "POST") return res.status(405).send("Mètode no permès");
   
@@ -15,8 +16,8 @@ module.exports = async (req, res) => {
     const snapshot = await db.collection('cercavins').get();
     let celler = "Vins:\n";
     snapshot.forEach(doc => { 
-      const d = doc.data();
-      celler += `- ${d.nom} (${d.do}). Preu: ${d.preu_min}€\n`; 
+        const d = doc.data();
+        celler += `- ${d.nom} (${d.do}). Preu: ${d.preu_min}€\n`; 
     });
 
     const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {

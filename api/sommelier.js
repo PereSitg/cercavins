@@ -1,21 +1,19 @@
 const admin = require('firebase-admin');
 
 if (!admin.apps.length) {
-  // Afegim el replace per si la clau de Firebase té salts de línia
   const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT.replace(/\\n/g, '\n'));
   admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
 }
 
 const db = admin.firestore();
 
-// AQUESTA ÉS LA LÍNIA CLAU QUE HA DE SER DIFERENT:
 module.exports = async (req, res) => {
   if (req.method !== "POST") return res.status(405).send("Mètode no permès");
   
   try {
     const { pregunta } = req.body;
     const snapshot = await db.collection('cercavins').get();
-    let celler = "Llista de vins disponibles:\n";
+    let celler = "Vins disponibles:\n";
     snapshot.forEach(doc => { 
         const d = doc.data();
         celler += `- ${d.nom} (${d.do}). Preu: ${d.preu_min}€\n`; 
@@ -37,7 +35,6 @@ module.exports = async (req, res) => {
     });
 
     const data = await response.json();
-    // VERCEL RESPON AIXÍ:
     res.status(200).json({ resposta: data.choices[0].message.content });
   } catch (error) {
     res.status(500).json({ error: error.message });

@@ -3,7 +3,7 @@
     --ruby-wine: #702132;
     --blanc-pur: #ffffff;
     --negre-pur: #000000;
-    --ia-gold: #e6b97e; /* Daurat per la Intel·ligència Artificial */
+    --ia-vibrant: #ffcc00; /* Daurat elèctric per a la IA */
     --ombra: rgba(0, 0, 0, 0.4);
 }
 
@@ -19,28 +19,29 @@ body {
     align-items: center;
 }
 
-/* Capçalera equilibrada */
+/* Capçalera neta i alineada */
 header {
     text-align: center;
     padding: 100px 20px 40px 20px;
 }
 
 header h1 {
-    font-size: 4.2rem; /* Una mica més contingut per SommelierDigital */
+    font-size: 4.2rem;
     font-weight: 800;
     text-transform: none;
     letter-spacing: -2px;
     margin: 0;
     line-height: 1;
+    display: flex;
+    justify-content: center;
 }
 
-/* Detall per ressaltar la IA (la 'i' i la 'a' de Digital) */
+/* Detall per ressaltar la IA (la 'i' i la 'a') sense deformar */
 .ia-focus {
-    color: var(--ia-gold);
-    font-style: italic;
-    text-shadow: 0 0 15px rgba(230, 185, 126, 0.4);
-    display: inline-block;
-    transform: translateY(-1px); /* Un toc subtil de moviment */
+    color: var(--ia-vibrant);
+    font-style: normal; /* Lletra recta per coherència total */
+    text-shadow: 0 0 12px rgba(255, 204, 0, 0.3);
+    /* Hem eliminat el transform que la movia de lloc */
 }
 
 header p {

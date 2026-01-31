@@ -95,16 +95,19 @@ module.exports = async (req, res) => {
     console.log('🔥 Data completa de Groq:', JSON.stringify(data, null, 2))
 
     // ----------------------
-    // Extracció segura de la resposta
+    // Extracció flexible de la resposta
     // ----------------------
     let resposta = 'Sense resposta'
 
-    // Prova diferents rutes dins del JSON
+    // Intentem diferents rutes habituals a Groq
     if (data?.results?.length > 0) {
-      // Molts casos Groq posa el text a results[0].content o results[0].text
-      resposta = data.results[0].content || data.results[0].text || resposta
+      const firstResult = data.results[0]
+      resposta =
+        firstResult.output_text ||
+        firstResult.text ||
+        firstResult.content ||
+        resposta
     } else if (data?.choices?.length > 0) {
-      // fallback per compatibilitat amb OpenAI style
       resposta = data.choices[0]?.message?.content || resposta
     }
 

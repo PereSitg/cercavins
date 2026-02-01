@@ -6,20 +6,26 @@ module.exports = async (req, res) => {
   try {
     const { pregunta } = req.body;
 
-    // 1. Intentem inicialitzar Firebase
+    // 1. Configurem les claus netejant espais en blanc (trim)
+    const groqKey = process.env.GROQ_API_KEY ? process.env.GROQ_API_KEY.trim() : "";
+    const fbProjectID = process.env.FIREBASE_PROJECT_ID ? process.env.FIREBASE_PROJECT_ID.trim() : "";
+    const fbEmail = process.env.FIREBASE_CLIENT_EMAIL ? process.env.FIREBASE_CLIENT_EMAIL.trim() : "";
+    const fbKey = process.env.FIREBASE_PRIVATE_KEY ? process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n').trim() : "";
+
+    // 2. Inicialitzem Firebase només si no està ja inicialitzat
     if (!admin.apps.length) {
       admin.initializeApp({
         credential: admin.credential.cert({
-          projectId: process.env.FIREBASE_PROJECT_ID,
-          clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-          privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+          projectId: fbProjectID,
+          clientEmail: fbEmail,
+          privateKey: fbKey,
         }),
       });
     }
     
     const db = admin.firestore();
     
-    // 2. Intentem llegir la base de dades
+    // 3. Llegim els vins
     const snapshot = await db.collection('cercavins').get();
     let celler = '';
     snapshot.forEach(doc => { 
@@ -27,11 +33,11 @@ module.exports = async (req, res) => {
       celler += `${d.nom}(${d.do},${d.preu}€); `; 
     });
 
-    // 3. Intentem parlar amb Groq
+    // 4. Crida a Groq amb la clau neta
     const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
+        'Authorization': `Bearer ${groqKey}`,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
@@ -47,13 +53,14 @@ module.exports = async (req, res) => {
     const data = await response.json();
 
     if (data.error) {
+       // Si Groq torna a fallar, ens dirà exactament per què
        return res.status(500).json({ resposta: "Error de Groq: " + data.error.message });
     }
 
     res.status(200).json({ resposta: data.choices[0].message.content });
 
   } catch (error) {
-    // AQUESTA LÍNIA ÉS LA CLAU: Ens dirà l'error real a la pantalla de la web
+    // Si hi ha un error de Firebase o de codi, sortirà aquí
     res.status(500).json({ resposta: "ERROR DETECTAT: " + error.message });
   }
 };

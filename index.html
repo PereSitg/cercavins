@@ -4,12 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sommelier Digital 2026</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🍷</text></svg>">
+    
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;800&display=swap" rel="stylesheet">
     <style>
         :root {
             --ruby-wine: #702132;
             --blanc-pur: #ffffff;
-            --ia-highlight: #f0f0f0; /* Blanc os subtil, molt més elegant */
+            --ia-highlight: #f0f0f0; 
         }
 
         body {
@@ -39,7 +41,6 @@
             justify-content: center;
         }
 
-        /* Ressaltem la 'i' i la 'a' amb elegància i sense tòrcer-les */
         .ia-focus {
             color: var(--ia-highlight);
             font-style: normal;
@@ -129,7 +130,7 @@
     </header>
 
     <main class="search-area">
-        <input type="text" id="chat-input" placeholder="Que necessites..?" autocomplete="off">
+        <input type="text" id="chat-input" placeholder="Que necessites..?" maxlength="500" autocomplete="off">
         
         <div id="response-container">
             <div id="chat-window"></div>
@@ -163,7 +164,7 @@
                     const data = await res.json();
                     windowBox.innerHTML = `<p>${data.resposta}</p>`;
                 } catch (err) {
-                    windowBox.innerHTML = `<p>El sommelier està descansant. Torna-ho a provar quan es restableixi la quota.</p>`;
+                    windowBox.innerHTML = `<p>El sommelier ha tingut un problema amb les bótes. Torna-ho a provar en un moment.</p>`;
                 }
             }
         });

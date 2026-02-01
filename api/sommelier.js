@@ -1,38 +1,37 @@
 const admin = require('firebase-admin');
 
-// Ja no hi ha claus aquí. El sistema les agafa de "process.env"
-const serviceAccount = {
-  project_id: process.env.FIREBASE_PROJECT_ID,
-  client_email: process.env.FIREBASE_CLIENT_EMAIL,
-  private_key: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n')
-};
-
 module.exports = async (req, res) => {
   if (req.method !== 'POST') return res.status(405).send('Mètode no permès');
 
   try {
     const { pregunta } = req.body;
-    const clauGroq = process.env.GROQ_API_KEY;
 
+    // 1. Intentem inicialitzar Firebase
     if (!admin.apps.length) {
       admin.initializeApp({
-        credential: admin.credential.cert(serviceAccount)
+        credential: admin.credential.cert({
+          projectId: process.env.FIREBASE_PROJECT_ID,
+          clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+          privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+        }),
       });
     }
     
     const db = admin.firestore();
-    const snapshot = await db.collection('cercavins').get();
     
+    // 2. Intentem llegir la base de dades
+    const snapshot = await db.collection('cercavins').get();
     let celler = '';
     snapshot.forEach(doc => { 
       const d = doc.data();
       celler += `${d.nom}(${d.do},${d.preu}€); `; 
     });
 
+    // 3. Intentem parlar amb Groq
     const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${clauGroq}`,
+        'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
@@ -46,9 +45,15 @@ module.exports = async (req, res) => {
     });
 
     const data = await response.json();
+
+    if (data.error) {
+       return res.status(500).json({ resposta: "Error de Groq: " + data.error.message });
+    }
+
     res.status(200).json({ resposta: data.choices[0].message.content });
 
   } catch (error) {
-    res.status(500).json({ resposta: "Error de servidor. Revisa les variables d'entorn." });
+    // AQUESTA LÍNIA ÉS LA CLAU: Ens dirà l'error real a la pantalla de la web
+    res.status(500).json({ resposta: "ERROR DETECTAT: " + error.message });
   }
 };

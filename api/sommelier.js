@@ -6,61 +6,52 @@ module.exports = async (req, res) => {
   try {
     const { pregunta } = req.body;
 
-    // 1. Configurem les claus netejant espais en blanc (trim)
-    const groqKey = process.env.GROQ_API_KEY ? process.env.GROQ_API_KEY.trim() : "";
-    const fbProjectID = process.env.FIREBASE_PROJECT_ID ? process.env.FIREBASE_PROJECT_ID.trim() : "";
-    const fbEmail = process.env.FIREBASE_CLIENT_EMAIL ? process.env.FIREBASE_CLIENT_EMAIL.trim() : "";
-    const fbKey = process.env.FIREBASE_PRIVATE_KEY ? process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n').trim() : "";
-
-    // 2. Inicialitzem Firebase només si no està ja inicialitzat
+    // 1. Inicialitzem Firebase
     if (!admin.apps.length) {
       admin.initializeApp({
         credential: admin.credential.cert({
-          projectId: fbProjectID,
-          clientEmail: fbEmail,
-          privateKey: fbKey,
+          projectId: process.env.FIREBASE_PROJECT_ID,
+          clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+          privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n').trim(),
         }),
       });
     }
     
     const db = admin.firestore();
     
-    // 3. Llegim els vins
-    const snapshot = await db.collection('cercavins').get();
+    // 2. Agafem NOMÉS 10 VINS per a la prova (així no donarà error de longitud)
+    const snapshot = await db.collection('cercavins').limit(10).get();
     let celler = '';
     snapshot.forEach(doc => { 
       const d = doc.data();
-      celler += `${d.nom}(${d.do},${d.preu}€); `; 
+      celler += `${d.nom}: ${d.preu}€; `; 
     });
 
-    // 4. Crida a Groq amb la clau neta
+    // 3. Crida a Groq amb el model estàndard
     const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${groqKey}`,
+        'Authorization': `Bearer ${process.env.GROQ_API_KEY?.trim()}`,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        model: 'llama-3.1-8b-instant', 
+        model: 'llama3-8b-8192', 
         messages: [
           { role: 'system', content: 'Ets el sommelier de Cercavins. Respon breu en català. Vins: ' + celler },
           { role: 'user', content: pregunta }
-        ],
-        max_tokens: 400
+        ]
       })
     });
 
     const data = await response.json();
 
     if (data.error) {
-       // Si Groq torna a fallar, ens dirà exactament per què
        return res.status(500).json({ resposta: "Error de Groq: " + data.error.message });
     }
 
     res.status(200).json({ resposta: data.choices[0].message.content });
 
   } catch (error) {
-    // Si hi ha un error de Firebase o de codi, sortirà aquí
-    res.status(500).json({ resposta: "ERROR DETECTAT: " + error.message });
+    res.status(500).json({ resposta: "ERROR: " + error.message });
   }
 };

@@ -198,3 +198,70 @@
         const container = document.getElementById('response-container');
         const windowBox = document.getElementById('chat-window');
         const galeria = document.getElementById('vins-galeria');
+        const btnBorrar = document.getElementById('btn-borrar');
+
+        // Lògica per netejar la pantalla
+        btnBorrar.addEventListener('click', () => {
+            container.style.display = "none";
+            input.value = "";
+            input.focus();
+        });
+
+        input.addEventListener('keypress', async (e) => {
+            if (e.key === 'Enter') {
+                const pregunta = input.value;
+                if (!pregunta) return;
+
+                // Estat inicial de càrrega
+                container.style.display = "block";
+                windowBox.innerHTML = `<p class="pensant">El sommelier està consultant el celler...</p>`;
+                galeria.innerHTML = "";
+                const preguntaGuardada = pregunta;
+                input.value = "";
+
+                try {
+                    const res = await fetch('/api/sommelier', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ pregunta: preguntaGuardada })
+                    });
+                    const data = await res.json();
+                    
+                    // Funció per netejar el text (asteriscs i salts de línia)
+                    const processarText = (txt) => {
+                        return txt.trim()
+                            .replace(/\n/g, '<br>')
+                            .replace(/\*([^*]+)\*/g, '<span class="nom-vi-destacat">$1</span>');
+                    };
+
+                    if (data.resposta.includes('|||')) {
+                        const parts = data.resposta.split('|||');
+                        
+                        windowBox.innerHTML = `
+                            <span class="user-query">"${preguntaGuardada}"</span>
+                            <div>${processarText(parts[0])}</div>
+                        `;
+                        
+                        const vins = JSON.parse(parts[1].trim());
+                        vins.forEach(vi => {
+                            galeria.innerHTML += `
+                                <div class="vi-item">
+                                    <img src="${vi.imatge}" alt="${vi.nom}">
+                                    <div style="margin-top:10px; font-size:0.9rem;">${vi.nom}</div>
+                                </div>
+                            `;
+                        });
+                    } else {
+                        windowBox.innerHTML = `
+                            <span class="user-query">"${preguntaGuardada}"</span>
+                            <div>${processarText(data.resposta)}</div>
+                        `;
+                    }
+                } catch (err) {
+                    windowBox.innerHTML = `<p>Error de connexió. Torna-ho a provar.</p>`;
+                }
+            }
+        });
+    </script>
+</body>
+</html>

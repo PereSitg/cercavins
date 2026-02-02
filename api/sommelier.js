@@ -4,7 +4,16 @@ module.exports = async (req, res) => {
   if (req.method !== 'POST') return res.status(405).send('Mètode no permès');
 
   try {
-    const { pregunta } = req.body;
+    // Afegim 'idioma' que ve des del front-end
+    const { pregunta, idioma } = req.body;
+
+    // Detectem l'idioma del sistema
+    let llenguaResposta = "CATALÀ";
+    if (idioma) {
+        if (idioma.startsWith('es')) llenguaResposta = "CASTELLÀ (ESPAÑOL)";
+        else if (idioma.startsWith('fr')) llenguaResposta = "FRANCÈS (FRANÇAIS)";
+        else if (idioma.startsWith('en')) llenguaResposta = "ANGLÈS (ENGLISH)";
+    }
 
     if (!admin.apps.length) {
       admin.initializeApp({
@@ -17,7 +26,6 @@ module.exports = async (req, res) => {
     }
     
     const db = admin.firestore();
-    // Agafem 20 vins per tenir varietat sense saturar
     const snapshot = await db.collection('cercavins').limit(20).get(); 
     let celler = [];
     
@@ -26,7 +34,7 @@ module.exports = async (req, res) => {
       celler.push({
         nom: d.nom,
         do: d.do,
-        imatge: d.imatge, // El camp de la teva foto
+        imatge: d.imatge, 
         tipus: d.tipus
       });
     });
@@ -44,10 +52,11 @@ module.exports = async (req, res) => {
             role: 'system', 
             content: `Ets el sommelier de Cercavins. 
             NORMES:
-            1. Respon EN CATALÀ de forma amable.
-            2. NO MENCIONIS EL PREU.
-            3. Recomana 3 o 4 vins que encaixin amb la pregunta.
-            4. Molt important: Al final de tot, afegeix la cadena "|||" i després un JSON amb els objectes dels vins recomanats (nom, do, imatge).`
+            1. Respon SEMPRE en ${llenguaResposta}.
+            2. Per a cada vi que recomanis, identifica el seu RAÏM usant la teva memòria interna (ex: Nerello Mascalese, Chardonnay, Garnatxa). Explica breument per què aquest raïm va bé amb el plat.
+            3. NO MENCIONIS EL PREU.
+            4. Recomana 3 o 4 vins.
+            5. Al final, afegeix "|||" i el JSON (nom, do, imatge).`
           },
           { role: 'user', content: `Vins: ${JSON.stringify(celler)}. Pregunta: ${pregunta}` }
         ]

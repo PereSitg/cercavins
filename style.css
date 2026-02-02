@@ -15,27 +15,27 @@ body {
     min-height: 100vh;
     display: flex;
     flex-direction: column;
-    align-items: center; /* Centra tot el contingut horitzontalment */
+    align-items: center; /* Centratge horitzontal absolut */
     overflow-x: hidden;
 }
 
 header {
     width: 100%;
-    text-align: center;
+    max-width: 800px;
     padding: 100px 20px 40px 20px;
     display: flex;
     flex-direction: column;
-    align-items: center; /* Asegura que el títol i p estiguin centrats */
+    align-items: center; /* Centra els fills (h1 i p) */
+    text-align: center;
 }
 
 header h1 {
     font-size: 4.2rem;
     font-weight: 800;
-    text-transform: none;
     letter-spacing: -2px;
-    margin: 0;
+    margin: 0 auto;
     line-height: 1;
-    width: 100%;
+    width: fit-content; /* Evita que el bloc ocupi més del que toca */
 }
 
 .ia-focus {
@@ -45,38 +45,41 @@ header h1 {
 
 header p {
     font-size: 0.75rem;
-    margin: 15px 0 0 0; /* Ajustat */
+    margin: 15px auto 0 auto;
     letter-spacing: 6px;
     opacity: 0.6;
     text-transform: uppercase;
-    width: 100%;
+    width: fit-content;
 }
 
 .search-area {
     width: 90%;
     max-width: 700px;
     display: flex;
-    justify-content: center; /* Centra la barra */
+    flex-direction: column;
+    align-items: center; /* Centra la barra */
     margin: 0 auto;
 }
 
 #chat-input {
     width: 100%;
+    max-width: 600px; /* Limitem l'ample perquè no es vegi massa estirat */
     padding: 22px 35px;
     border-radius: 100px;
     border: 1px solid rgba(255, 255, 255, 0.2);
     background: rgba(255, 255, 255, 0.05);
     color: white;
     font-size: 1.1rem;
-    text-align: center; /* CENTRA EL TEXT I EL PLACEHOLDER */
+    text-align: center; /* Centra el text de dins i el placeholder */
     outline: none;
     transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
     box-sizing: border-box;
     box-shadow: 0 10px 30px var(--ombra);
+    margin: 0 auto;
 }
 
 #chat-input::placeholder {
-    text-align: center; /* Reforç per a alguns navegadors */
+    text-align: center;
     color: rgba(255, 255, 255, 0.4);
 }
 
@@ -85,7 +88,7 @@ header p {
     border-color: rgba(255, 255, 255, 0.4);
 }
 
-/* CONTENIDOR DE RESPOSTA PROFESSIONAL */
+/* RESPOSTA I CONTINGUT */
 #response-container {
     width: 95%;
     max-width: 850px;
@@ -96,49 +99,38 @@ header p {
     border: 1px solid rgba(255, 255, 255, 0.1);
     backdrop-filter: blur(25px);
     display: none;
-    animation: fadeIn 0.6s ease-out;
+    flex-direction: column;
+    align-items: center; /* Centra contingut intern de la resposta */
     box-sizing: border-box;
     box-shadow: 0 20px 50px rgba(0,0,0,0.5);
 }
 
-@keyframes fadeIn {
-    from { opacity: 0; transform: translateY(20px); }
-    to { opacity: 1; transform: translateY(0); }
-}
-
 .user-query {
-    display: block;
+    width: 100%;
+    text-align: center; /* Centra la teva pregunta */
     color: rgba(255, 255, 255, 0.5);
-    font-weight: 400;
     margin-bottom: 25px;
     font-size: 0.9rem;
-    font-style: italic;
     border-bottom: 1px solid rgba(255,255,255,0.1);
     padding-bottom: 15px;
-    text-align: center; /* Centra la pregunta de l'usuari */
 }
 
 #chat-window {
+    width: 100%;
     font-size: 1.15rem;
     line-height: 1.8;
-    text-align: left;
+    text-align: left; /* El text llarg és millor a l'esquerra per llegir */
     margin-bottom: 30px;
     color: var(--blanc-pur);
-}
-
-.nom-vi-destacat {
-    color: var(--ia-highlight) !important;
-    font-weight: 800;
-    display: inline;
-    letter-spacing: 0.5px;
 }
 
 .vins-output {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
     gap: 25px;
+    width: 100%;
+    justify-content: center; /* Centra la quadrícula */
     justify-items: center;
-    margin-top: 35px;
 }
 
 .vi-item {
@@ -149,12 +141,6 @@ header p {
     max-width: 220px;
     text-align: center;
     border: 1px solid rgba(255, 255, 255, 0.1);
-    transition: transform 0.3s ease;
-}
-
-.vi-item:hover {
-    transform: translateY(-10px);
-    background: rgba(255, 255, 255, 0.06);
 }
 
 .vi-item img {
@@ -162,5 +148,4 @@ header p {
     height: 200px;
     object-fit: contain;
     margin-bottom: 15px;
-    border-radius: 10px;
 }

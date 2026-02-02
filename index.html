@@ -7,58 +7,21 @@
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🍷</text></svg>">
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;800&display=swap" rel="stylesheet">
     <style>
-        :root {
-            --ruby-wine: #702132;
-            --blanc-pur: #ffffff;
-            --ia-highlight: #d4af37;
-        }
-
-        body {
-            background: radial-gradient(circle at center, #800020 0%, #3a000e 100%);
-            color: var(--blanc-pur);
-            font-family: 'Plus Jakarta Sans', Arial, sans-serif;
-            margin: 0; padding: 0; min-height: 100vh;
-            display: flex; flex-direction: column; align-items: center;
-        }
-
-        header { text-align: center; padding: 80px 20px 40px 20px; }
-        header h1 { font-size: 4rem; font-weight: 800; letter-spacing: -2px; margin: 0; line-height: 1.1; }
-        .ia-focus { color: var(--ia-highlight); text-shadow: 0 0 10px rgba(212, 175, 55, 0.3); }
-        header p { font-size: 0.75rem; margin-top: 15px; letter-spacing: 6px; opacity: 0.6; text-transform: uppercase; }
-
-        .search-area { width: 90%; max-width: 700px; display: flex; flex-direction: column; align-items: center; flex-grow: 1; }
-        
-        #chat-input { 
-            width: 100%; padding: 22px 35px; border-radius: 100px; 
-            border: 1px solid rgba(255, 255, 255, 0.2); 
-            background: rgba(255, 255, 255, 0.05); color: white; 
-            font-size: 1.1rem; text-align: center; outline: none; 
-            transition: all 0.4s ease; box-sizing: border-box; 
-        }
-
-        #response-container { 
-            width: 100%; margin-top: 40px; background: rgba(255, 255, 255, 0.07); 
-            border-radius: 24px; padding: 40px; border: 1px solid rgba(255, 255, 255, 0.1); 
-            backdrop-filter: blur(20px); display: none; 
-            animation: fadeIn 0.6s ease-out; box-sizing: border-box; 
-        }
-
-        #chat-window { font-size: 1.15rem; line-height: 1.8; text-align: left; margin-bottom: 30px; }
-        .user-query { color: var(--ia-highlight); font-weight: 800; display: block; margin-bottom: 15px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px; font-style: italic; }
-        .nom-vi-destacat { color: var(--ia-highlight) !important; font-weight: 800; display: inline; }
-
-        .vins-output { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 20px; margin-top: 25px; }
-        .vi-item { background: rgba(0, 0, 0, 0.2); border-radius: 16px; padding: 20px; text-align: center; border: 1px solid rgba(255, 255, 255, 0.05); transition: transform 0.3s ease; }
-        .vi-item:hover { transform: translateY(-5px); }
-        .vi-item img { height: 220px; width: auto; max-width: 100%; object-fit: contain; filter: drop-shadow(0 8px 12px rgba(0,0,0,0.4)); }
-        .vi-item .vi-nom { margin-top: 15px; font-size: 0.95rem; font-weight: 800; color: var(--ia-highlight); }
-
-        .btn-clear { margin-top: 30px; padding: 12px 25px; background: transparent; border: 1px solid rgba(255,255,255,0.2); color: var(--blanc-pur); border-radius: 50px; cursor: pointer; font-size: 0.8rem; letter-spacing: 1px; text-transform: uppercase; transition: all 0.3s ease; display: block; margin-left: auto; margin-right: auto; }
-        .btn-clear:hover { background: var(--ia-highlight); color: #000; }
-        
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        footer { padding: 60px 20px; text-align: center; }
-        footer p { font-size: 0.7rem; letter-spacing: 2px; opacity: 0.5; }
+        :root { --ia-highlight: #d4af37; --blanc: #ffffff; }
+        body { background: radial-gradient(circle at center, #800020 0%, #3a000e 100%); color: var(--blanc); font-family: 'Plus Jakarta Sans', sans-serif; margin: 0; min-height: 100vh; display: flex; flex-direction: column; align-items: center; }
+        header { text-align: center; padding: 60px 20px 30px; }
+        header h1 { font-size: 3.5rem; font-weight: 800; margin: 0; }
+        .ia-focus { color: var(--ia-highlight); }
+        .search-area { width: 90%; max-width: 700px; flex-grow: 1; margin-top: 20px; }
+        #chat-input { width: 100%; padding: 20px 30px; border-radius: 50px; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.05); color: white; font-size: 1.1rem; text-align: center; outline: none; }
+        #response-container { width: 100%; margin-top: 30px; background: rgba(255,255,255,0.07); border-radius: 20px; padding: 30px; display: none; box-sizing: border-box; }
+        #chat-window { font-size: 1.1rem; line-height: 1.6; margin-bottom: 20px; }
+        .nom-vi-destacat { color: var(--ia-highlight); font-weight: 800; }
+        .vins-output { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; }
+        .vi-item { background: rgba(0,0,0,0.2); border-radius: 12px; padding: 15px; text-align: center; border: 1px solid rgba(255,255,255,0.1); }
+        .vi-item img { height: 180px; object-fit: contain; margin-bottom: 10px; }
+        .btn-clear { display: block; margin: 20px auto 0; padding: 10px 25px; border-radius: 50px; border: 1px solid var(--ia-highlight); background: transparent; color: var(--ia-highlight); cursor: pointer; }
+        footer { padding: 40px; opacity: 0.6; font-size: 0.8rem; text-align: center; }
     </style>
 </head>
 <body>
@@ -69,17 +32,18 @@
     </header>
 
     <main class="search-area">
-        <input type="text" id="chat-input" placeholder="..." maxlength="500" autocomplete="off">
+        <input type="text" id="chat-input" placeholder="Que necessites..?" autocomplete="off">
+        
         <div id="response-container">
             <div id="chat-window"></div>
             <div id="vins-galeria" class="vins-output"></div>
-            <button id="btn-borrar" class="btn-clear"></button>
+            <button id="btn-borrar" class="btn-clear">Nova consulta</button>
         </div>
     </main>
 
-    <footer><p id="footer-text"></p></footer>
+    <footer><p id="footer-text">© 2026 · TOTS ELS DRETS RESERVATS</p></footer>
 
-    <script type="module">
+    <script>
         const input = document.getElementById('chat-input');
         const container = document.getElementById('response-container');
         const windowBox = document.getElementById('chat-window');
@@ -87,86 +51,74 @@
         const btnBorrar = document.getElementById('btn-borrar');
         const footerText = document.getElementById('footer-text');
 
-        // DETECCIÓ D'IDIOMA DEL PC
-        const userLanguage = navigator.language || navigator.userLanguage;
-        const langCode = userLanguage.split('-')[0];
-
+        // Idiomes
         const langConfigs = {
-            'ca': { 
-                placeholder: "Què necessites..?", 
-                loading: "El sommelier està consultant el celler...", 
-                btn: "Nova consulta",
-                footer: "© 2026 · TOTS ELS DRETS RESERVATS" 
-            },
-            'es': { 
-                placeholder: "¿Qué necesitas?", 
-                loading: "El sumiller está consultando la bodega...", 
-                btn: "Nueva consulta",
-                footer: "© 2026 · TODOS LOS DERECHOS RESERVADOS" 
-            },
-            'fr': { 
-                placeholder: "Que désirez-vous ?", 
-                loading: "Le sommelier consulte la cave...", 
-                btn: "Nouvelle recherche",
-                footer: "© 2026 · TOUS DROITS RÉSERVÉS" 
-            },
-            'en': { 
-                placeholder: "How can I help you?", 
-                loading: "The sommelier is checking the cellar...", 
-                btn: "New search",
-                footer: "© 2026 · ALL RIGHTS RESERVED" 
-            }
+            'ca': { placeholder: "Que necessites..?", loading: "Consultant el celler...", btn: "Nova consulta", footer: "© 2026 · TOTS ELS DRETS RESERVATS" },
+            'es': { placeholder: "¿Qué necesitas?", loading: "Consultando bodega...", btn: "Nueva consulta", footer: "© 2026 · TODOS LOS DERECHOS RESERVADOS" },
+            'fr': { placeholder: "Que désirez-vous ?", loading: "Consultation de la cave...", btn: "Nouvelle recherche", footer: "© 2026 · TOUS DROITS RÉSERVÉS" }
         };
 
-        const config = langConfigs[langCode] || langConfigs['en'];
-        
-        // APLIQUEM IDIOMA INICIAL
+        const userLang = (navigator.language || 'ca').split('-')[0];
+        const config = langConfigs[userLang] || langConfigs['ca'];
+
+        // Aplicar textos immediatament
         input.placeholder = config.placeholder;
         btnBorrar.innerText = config.btn;
         footerText.innerText = config.footer;
 
-        btnBorrar.addEventListener('click', () => {
+        btnBorrar.onclick = () => {
             container.style.display = "none";
             input.value = "";
             input.focus();
-        });
-
-        const pintarNomsVins = (textIA, llistaVins) => {
-            let html = textIA.trim().replace(/\n/g, '<br>');
-            html = html.replace(/\*\*/g, '').replace(/\*/g, '');
-
-            llistaVins.forEach(vi => {
-                const nomVi = vi.nom.trim();
-                const regex = new RegExp(`(${nomVi})`, 'gi');
-                html = html.replace(regex, '<span class="nom-vi-destacat">$1</span>');
-            });
-            return html;
         };
 
-        input.addEventListener('keypress', async (e) => {
-            if (e.key === 'Enter') {
-                const pregunta = input.value;
-                if (!pregunta) return;
+        const pintarNomsVins = (text, vins) => {
+            let res = text.replace(/\*/g, '').replace(/\n/g, '<br>');
+            vins.forEach(v => {
+                const regex = new RegExp(`(${v.nom})`, 'gi');
+                res = res.replace(regex, '<span class="nom-vi-destacat">$1</span>');
+            });
+            return res;
+        };
 
+        input.onkeypress = async (e) => {
+            if (e.key === 'Enter' && input.value.trim() !== "") {
+                const pregunta = input.value;
                 container.style.display = "block";
-                windowBox.innerHTML = `<p style="text-align:center; opacity:0.5; font-style:italic;">${config.loading}</p>`;
+                windowBox.innerHTML = `<i>${config.loading}</i>`;
                 galeria.innerHTML = "";
-                const preguntaGuardada = pregunta;
                 input.value = "";
 
                 try {
                     const res = await fetch('/api/sommelier', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ pregunta: preguntaGuardada, idioma: userLanguage })
+                        body: JSON.stringify({ pregunta, idioma: userLang })
                     });
                     const data = await res.json();
                     
                     if (data.resposta.includes('|||')) {
-                        const parts = data.resposta.split('|||');
-                        const textIA = parts[0];
-                        const vinsJSON = JSON.parse(parts[1].trim());
-
-                        windowBox.innerHTML = `
-                            <span class="user-query">"${preguntaGuardada}"</span>
-                            <div>${pintarNomsVins(textIA, vinsJSON)}</div>
+                        const [text, json] = data.resposta.split('|||');
+                        const vins = JSON.parse(json.trim());
+                        
+                        windowBox.innerHTML = pintarNomsVins(text, vins);
+                        
+                        vins.forEach(v => {
+                            const img = v.imatge || "https://images.vivino.com/thumbs/default_label_600x600.png";
+                            galeria.innerHTML += `
+                                <div class="vi-item">
+                                    <img src="${img}" onerror="this.src='https://images.vivino.com/thumbs/default_label_600x600.png'">
+                                    <div class="vi-nom">${v.nom}</div>
+                                </div>`;
+                        });
+                    } else {
+                        windowBox.innerHTML = data.resposta.replace(/\*/g, '');
+                    }
+                } catch (err) {
+                    windowBox.innerHTML = "Error de connexió.";
+                }
+            }
+        };
+    </script>
+</body>
+</html>

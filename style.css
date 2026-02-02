@@ -2,7 +2,7 @@
 :root {
     --ruby-wine: #702132;
     --blanc-pur: #ffffff;
-    --ia-champagne: #d4af37; /* Daurat clàssic, molt més elegant que el groc */
+    --ia-champagne: #d4af37;
     --ombra: rgba(0, 0, 0, 0.4);
 }
 
@@ -32,10 +32,9 @@ header h1 {
     line-height: 1;
 }
 
-/* Ressaltem la IA amb un daurat xampany que lliga amb el vi */
 .ia-focus {
     color: var(--ia-champagne);
-    font-style: normal; /* Recte com m'has demanat */
+    font-style: normal;
     text-shadow: 0 0 5px rgba(212, 175, 55, 0.2);
 }
 
@@ -47,7 +46,6 @@ header p {
     text-transform: uppercase;
 }
 
-/* Cercador i resta d'estils es mantenen igual */
 #chat-input {
     width: 100%;
     padding: 22px 35px;
@@ -69,26 +67,79 @@ header p {
 }
 
 #response-container {
-    width: 100%;
-    margin-top: 40px;
+    width: 90%;
+    max-width: 800px; /* Una mica més ample per les fotos */
+    margin: 40px auto;
     background: rgba(255, 255, 255, 0.08);
     border-radius: 24px;
-    padding: 30px;
+    padding: 40px;
     border: 1px solid rgba(255, 255, 255, 0.1);
     backdrop-filter: blur(20px);
     display: none;
     animation: fadeIn 0.6s ease-out;
 }
 
-@keyframes fadeIn {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: translateY(0); }
+/* ARREGLAMENT DEL TEXT I LES FOTOS */
+
+.pregunta-u {
+    display: block;
+    color: var(--ia-champagne);
+    font-weight: 800;
+    margin-bottom: 20px;
+    font-size: 1.2rem;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    padding-bottom: 10px;
 }
 
 #chat-window {
     font-size: 1.1rem;
-    line-height: 1.8;
+    line-height: 1.7; /* Més espai entre línies */
+    text-align: left; /* Text a l'esquerra per millor lectura */
+    margin-bottom: 30px;
+}
+
+.vins-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    justify-content: center;
+    margin-top: 20px;
+}
+
+.vi-card {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 15px;
+    padding: 15px;
+    width: 160px;
     text-align: center;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.vi-card img {
+    height: 180px;
+    width: auto;
+    object-fit: contain;
+    margin-bottom: 10px;
+    filter: drop-shadow(0 5px 15px rgba(0,0,0,0.4));
+}
+
+.vi-card h4 {
+    font-size: 0.85rem;
+    margin: 5px 0;
+    line-height: 1.2;
+}
+
+.vi-card p {
+    font-size: 0.7rem;
+    opacity: 0.5;
+    margin: 0;
+}
+
+.pensant { font-style: italic; opacity: 0.5; text-align: center; width: 100%; }
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 
 footer {

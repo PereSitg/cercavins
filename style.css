@@ -79,8 +79,6 @@ header p {
     animation: fadeIn 0.6s ease-out;
 }
 
-/* ARREGLAMENT DEL TEXT I LES FOTOS */
-
 .pregunta-u {
     display: block;
     color: var(--ia-champagne);
@@ -98,7 +96,6 @@ header p {
     margin-bottom: 30px;
 }
 
-/* RESSALTAT DE VINS (Substitueix els asteriscs) */
 .vi-destacat {
     color: var(--ia-champagne);
     font-weight: 800;
@@ -109,3 +106,26 @@ header p {
     flex-wrap: wrap;
     gap: 20px;
     justify-content: center;
+    margin-top: 20px;
+}
+
+.vi-card {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 15px;
+    padding: 15px;
+    width: 160px;
+    text-align: center;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.vi-card img {
+    height: 180px;
+    width: auto;
+    object-fit: contain;
+    margin-bottom: 10px;
+    filter: drop-shadow(0 5px 15px rgba(0,0,0,0.4));
+}
+
+.vi-card h4 {
+    font-size: 0.85rem;
+    margin

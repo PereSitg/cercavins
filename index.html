@@ -116,7 +116,6 @@
             padding-bottom: 10px;
         }
 
-        /* NOM DEL VI INTEGRAT I SENSE ASTERISCS */
         .nom-vi-destacat {
             color: var(--ia-highlight);
             font-weight: 800;
@@ -151,3 +150,51 @@
             border: 1px solid rgba(255,255,255,0.2);
             color: var(--blanc-pur);
             border-radius: 50px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            transition: all 0.3s ease;
+            display: block;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .btn-clear:hover {
+            background: rgba(255,255,255,0.1);
+            border-color: var(--ia-highlight);
+            color: var(--ia-highlight);
+        }
+
+        .pensant { font-style: italic; opacity: 0.5; text-align: center; width: 100%; }
+
+        footer { padding: 60px 20px; text-align: center; }
+        footer p { font-size: 0.7rem; letter-spacing: 2px; opacity: 0.3; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>SommelierDig<span class="ia-focus">i</span>t<span class="ia-focus">a</span>l</h1>
+        <p>BY PERE BADIA I LORENZ</p>
+    </header>
+
+    <main class="search-area">
+        <input type="text" id="chat-input" placeholder="Que necessites..?" maxlength="500" autocomplete="off">
+        
+        <div id="response-container">
+            <div id="chat-window"></div>
+            <div id="vins-galeria" class="vins-output"></div>
+            <button id="btn-borrar" class="btn-clear">Nova consulta</button>
+        </div>
+    </main>
+
+    <footer>
+        <p>&copy; 2026 &middot; TOTS ELS DRETS RESERVATS</p>
+    </footer>
+
+    <script type="module">
+        const input = document.getElementById('chat-input');
+        const container = document.getElementById('response-container');
+        const windowBox = document.getElementById('chat-window');
+        const galeria = document.getElementById('vins-galeria');

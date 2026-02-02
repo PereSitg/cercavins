@@ -1,12 +1,13 @@
 const admin = require('firebase-admin');
 
 module.exports = async (req, res) => {
+    // Evitem mètodes que no siguin POST
     if (req.method !== 'POST') return res.status(405).send('Mètode no permès');
 
     try {
         const { pregunta, idioma } = req.body;
 
-        // 1. Detecció REAL de l'idioma enviat des del PC
+        // LOGICA D'IDIOMA: Forcem que la IA entengui l'ordre segons el PC
         let llenguaResposta = "CATALÀ";
         if (idioma) {
             const lang = idioma.toLowerCase();
@@ -15,6 +16,7 @@ module.exports = async (req, res) => {
             else if (lang.startsWith('en')) llenguaResposta = "ANGLÈS (ENGLISH)";
         }
 
+        // INICIALITZACIÓ FIREBASE
         if (!admin.apps.length) {
             admin.initializeApp({
                 credential: admin.credential.cert({
@@ -26,7 +28,8 @@ module.exports = async (req, res) => {
         }
 
         const db = admin.firestore();
-        const snapshot = await db.collection('cercavins').limit(40).get();
+        // Reduïm a 20 vins per anar més ràpid i evitar el "Timeout" de Vercel
+        const snapshot = await db.collection('cercavins').limit(20).get();
         let celler = [];
 
         snapshot.forEach(doc => {
@@ -34,7 +37,7 @@ module.exports = async (req, res) => {
             celler.push({ nom: d.nom, do: d.do, imatge: d.imatge, tipus: d.tipus });
         });
 
-        // 2. El Prompt que obliga a la IA a buscar el raïm i parlar l'idioma del PC
+        // CRIDA A LA IA AMB PROMPT REFORÇAT
         const responseIA = await fetch('https://api.groq.com/openai/v1/chat/completions', {
             method: 'POST',
             headers: {
@@ -46,30 +49,28 @@ module.exports = async (req, res) => {
                 messages: [
                     {
                         role: 'system',
-                        content: `Ets un Sommelier d'elit de Cercavins. 
-                        
-                        REGLA D'OR DE L'IDIOMA:
-                        - Respon TOTALMENT i ÚNICAMENT en ${llenguaResposta}. 
-                        - No usis frases en cap altre idioma.
-                        
-                        INSTRUCCIÓ DEL RAÏM (MEMÒRIA IA):
-                        - Les dades del celler no tenen el camp 'raim'. TU els coneixes.
-                        - Per a cada vi que recomanis, identifica el seu raïm (ex: Nerello Mascalese, Chardonnay, etc.) i explica per què és ideal per al plat.
-                        - PROHIBIT dir "la lista no especifica la variedad".
-                        
-                        FORMAT:
-                        - No usis asteriscs (*).
-                        - Separa la teva explicació del JSON amb "|||".`
+                        content: `Ets un Sommelier d'elit. 
+                        REGLA 1: Respon ÚNICAMENT en ${llenguaResposta}. És vital.
+                        REGLA 2: No tens el camp 'raim' a les dades, però TU saps de quin raïm està fet cada vi. Identifica'l i explica'l.
+                        REGLA 3: PROHIBIT dir "la lista no especifica". Sigues un expert.
+                        REGLA 4: Format net sense asteriscs. Separa amb |||.`
                     },
                     { role: 'user', content: `Celler: ${JSON.stringify(celler)}. Pregunta: ${pregunta}` }
-                ]
+                ],
+                max_tokens: 800 // Limitem per evitar talls de connexió
             })
         });
 
         const dataIA = await responseIA.json();
-        res.status(200).json({ resposta: dataIA.choices[0].message.content });
+
+        if (dataIA.choices && dataIA.choices[0]) {
+            return res.status(200).json({ resposta: dataIA.choices[0].message.content });
+        } else {
+            return res.status(500).json({ resposta: "La IA ha trigat massa o no ha respost." });
+        }
 
     } catch (error) {
-        res.status(500).json({ resposta: "Error: " + error.message });
+        console.error("Error detectat:", error.message);
+        return res.status(500).json({ resposta: "Error de connexió: " + error.message });
     }
 };

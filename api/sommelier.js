@@ -5,10 +5,12 @@ module.exports = async (req, res) => {
 
   try {
     const { pregunta, idioma } = req.body;
+    
+    // Simplifiquem la lògica d'idioma per ser més ràpids
     let llengua = "CATALÀ";
-    if (idioma?.startsWith('es')) llengua = "CASTELLÀ";
-    else if (idioma?.startsWith('fr')) llengua = "FRANCÈS";
-    else if (idioma?.startsWith('en')) llengua = "ANGLÈS";
+    if (idioma?.toLowerCase().startsWith('es')) llengua = "CASTELLÀ";
+    else if (idioma?.toLowerCase().startsWith('fr')) llengua = "FRANCÈS";
+    else if (idioma?.toLowerCase().startsWith('en')) llengua = "ANGLÈS";
 
     if (!admin.apps.length) {
       admin.initializeApp({
@@ -21,7 +23,8 @@ module.exports = async (req, res) => {
     }
     
     const db = admin.firestore();
-    const snapshot = await db.collection('cercavins').limit(15).get(); 
+    // Reduïm a 12 vins: és el número màgic per no tenir timeout i tenir varietat
+    const snapshot = await db.collection('cercavins').limit(12).get(); 
     let celler = [];
     snapshot.forEach(doc => { 
       const d = doc.data();
@@ -39,20 +42,30 @@ module.exports = async (req, res) => {
         messages: [
           { 
             role: 'system', 
-            content: `Ets el sommelier de Cercavins. 
-            - Respon en ${llengua}. 
-            - Per cada vi, IDENTIFICA EL RAÏM (ex: Xarel·lo, Pinot Noir) usant el que saps de cada marca.
-            - Explica el maridatge basant-te en les característiques del raïm.
-            - Format net, sense asteriscs. Separa amb ||| i el JSON.`
+            content: `Ets el sommelier expert de Cercavins. 
+            - Respon SEMPRE en ${llengua}. 
+            - Per a cada vi recomanat, IDENTIFICA EL SEU RAÏM (varietat) usant la teva memòria (ex: Chardonnay, Garnatxa, Xarel·lo). 
+            - Explica breument el maridatge basat en el raïm.
+            - No diguis que no tens dades. Sigues un expert.
+            - Format: Text net sense asteriscs + ||| + JSON (nom, do, imatge).`
           },
-          { role: 'user', content: `Vins: ${JSON.stringify(celler)}. Pregunta: ${pregunta}` }
-        ]
+          { role: 'user', content: `Celler: ${JSON.stringify(celler)}. Pregunta: ${pregunta}` }
+        ],
+        temperature: 0.5,
+        max_tokens: 700 // Limitem tokens per accelerar la resposta i evitar el tall de Vercel
       })
     });
 
     const data = await response.json();
-    res.status(200).json({ resposta: data.choices[0].message.content });
+    
+    if (data.choices && data.choices[0]) {
+        res.status(200).json({ resposta: data.choices[0].message.content });
+    } else {
+        throw new Error("Resposta de la IA buida o timeout.");
+    }
+
   } catch (error) {
-    res.status(500).json({ resposta: "ERROR: " + error.message });
+    // Si hi ha error, ho enviem clarament al front
+    res.status(500).json({ resposta: "Error de connexió o timeout: " + error.message });
   }
 };

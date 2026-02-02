@@ -1,4 +1,4 @@
-/* RESET DE SEGURETAT: Això evita que els paddings moguin les coses cap a la dreta */
+/* 1. RESET DE SEGURETAT */
 * {
     box-sizing: border-box;
     margin: 0;
@@ -12,8 +12,8 @@ body {
     min-height: 100vh;
     display: flex;
     flex-direction: column;
-    align-items: center; /* Centratge horitzontal de tot el contingut */
-    overflow-x: hidden; /* Evita que la web balli lateralment */
+    align-items: center; 
+    overflow-x: hidden;
     width: 100%;
 }
 
@@ -24,7 +24,7 @@ header {
     text-align: center;
     display: flex;
     flex-direction: column;
-    align-items: center; /* Centra el títol dins del header */
+    align-items: center;
 }
 
 header h1 {
@@ -34,13 +34,18 @@ header h1 {
     margin-bottom: 10px;
 }
 
+/* 2. AREA DE CERCA I RESPOSTA: ARA MESUREN EL MATEIX (700px) */
+.search-area, #response-container {
+    width: 90%;
+    max-width: 700px; /* Mida única per a les dues caixes */
+    margin-left: auto;
+    margin-right: auto;
+}
+
 .search-area {
-    width: 100%;
-    max-width: 650px; /* Ample ideal de la barra */
-    padding: 0 20px;
-    margin: 0 auto;
     display: flex;
     justify-content: center;
+    margin-bottom: 20px;
 }
 
 #chat-input {
@@ -51,22 +56,56 @@ header h1 {
     background: rgba(255, 255, 255, 0.05);
     color: white;
     font-size: 1.1rem;
-    text-align: center; /* Centra el placeholder i el que escrius */
+    text-align: center;
     outline: none;
     transition: all 0.3s ease;
     box-shadow: 0 10px 30px rgba(0,0,0,0.3);
 }
 
-/* Això és el que surt quan la IA respon */
+/* 3. CAIXA DE RESPOSTA (IGUAL QUE LA CERCA) */
 #response-container {
-    width: 90%;
-    max-width: 850px;
-    margin: 30px auto;
-    padding: 30px;
+    margin-top: 30px;
+    padding: 35px;
     background: rgba(255, 255, 255, 0.08);
     border-radius: 20px;
     backdrop-filter: blur(20px);
-    display: none; /* Es canvia a flex per JavaScript */
+    display: none; 
     flex-direction: column;
     align-items: center;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+#chat-window {
+    width: 100%;
+    font-size: 1.1rem;
+    line-height: 1.8;
+    text-align: left; /* El text llarg es llegeix millor a l'esquerra */
+}
+
+/* 4. EL GROC PER ALS NÚMEROS I NOMS */
+.nom-vi-destacat {
+    color: #d4af37 !important; /* Daurat sommelier */
+    font-weight: 800;
+}
+
+.vins-output {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 15px;
+    width: 100%;
+    margin-top: 20px;
+}
+
+.vi-item {
+    background: rgba(0,0,0,0.2);
+    border-radius: 12px;
+    padding: 15px;
+    text-align: center;
+    border: 1px solid rgba(255,255,255,0.1);
+}
+
+.vi-item img {
+    height: 180px;
+    object-fit: contain;
+    margin-bottom: 10px;
 }

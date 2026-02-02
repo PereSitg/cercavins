@@ -6,6 +6,7 @@ module.exports = async (req, res) => {
   try {
     const { pregunta } = req.body;
 
+    // 1. Inicialitzem Firebase
     if (!admin.apps.length) {
       admin.initializeApp({
         credential: admin.credential.cert({
@@ -17,20 +18,16 @@ module.exports = async (req, res) => {
     }
     
     const db = admin.firestore();
-    // Agafem 20 vins per tenir varietat sense saturar
-    const snapshot = await db.collection('cercavins').limit(20).get(); 
-    let celler = [];
     
+    // 2. Prova de seguretat: Només 10 vins
+    const snapshot = await db.collection('cercavins').limit(10).get();
+    let celler = '';
     snapshot.forEach(doc => { 
       const d = doc.data();
-      celler.push({
-        nom: d.nom,
-        do: d.do,
-        imatge: d.imatge, // El camp de la teva foto
-        tipus: d.tipus
-      });
+      celler += `${d.nom}: ${d.preu}€; `; 
     });
 
+    // 3. Crida a Groq amb el model ACTUALITZAT
     const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -38,23 +35,21 @@ module.exports = async (req, res) => {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
+        // Hem posat el 70b perquè el 8b vell ha caducat avui mateix
         model: 'llama-3.3-70b-versatile', 
         messages: [
-          { 
-            role: 'system', 
-            content: `Ets el sommelier de Cercavins. 
-            NORMES:
-            1. Respon EN CATALÀ de forma amable.
-            2. NO MENCIONIS EL PREU.
-            3. Recomana 3 o 4 vins que encaixin amb la pregunta.
-            4. Molt important: Al final de tot, afegeix la cadena "|||" i després un JSON amb els objectes dels vins recomanats (nom, do, imatge).`
-          },
-          { role: 'user', content: `Vins: ${JSON.stringify(celler)}. Pregunta: ${pregunta}` }
+          { role: 'system', content: 'Ets el sommelier de Cercavins. Respon breu en català. Vins: ' + celler },
+          { role: 'user', content: pregunta }
         ]
       })
     });
 
     const data = await response.json();
+
+    if (data.error) {
+       return res.status(500).json({ resposta: "Error de Groq: " + data.error.message });
+    }
+
     res.status(200).json({ resposta: data.choices[0].message.content });
 
   } catch (error) {

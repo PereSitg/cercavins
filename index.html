@@ -11,7 +11,7 @@
         :root {
             --ruby-wine: #702132;
             --blanc-pur: #ffffff;
-            --ia-highlight: #d4af37; /* Daurat xampany per a més elegància */
+            --ia-highlight: #d4af37; /* Daurat xampany */
         }
 
         body {
@@ -104,8 +104,8 @@
 
         #chat-window {
             font-size: 1.15rem;
-            line-height: 1.7;
-            text-align: left; /* Canviat a l'esquerra per millorar la lectura */
+            line-height: 1.8;
+            text-align: left;
             margin-bottom: 30px;
         }
 
@@ -118,7 +118,13 @@
             padding-bottom: 10px;
         }
 
-        /* GRID DE VINS MILLORAT */
+        /* Classe per remarcar el nom del vi en daurat */
+        .nom-vi-destacat {
+            color: var(--ia-highlight);
+            font-weight: 800;
+            text-shadow: 0 0 5px rgba(212, 175, 55, 0.2);
+        }
+
         .vins-output {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
@@ -209,10 +215,15 @@
                     if (data.resposta.includes('|||')) {
                         const parts = data.resposta.split('|||');
                         
-                        // Text netejat i ben espaiat
+                        // NETEJA D'ASTERISCS I RESSALTAT
+                        // Convertim *Nom del Vi* en <span class="nom-vi-destacat">Nom del Vi</span>
+                        let textProcessat = parts[0].trim()
+                            .replace(/\n/g, '<br>')
+                            .replace(/\*(.*?)\*/g, '<span class="nom-vi-destacat">$1</span>');
+
                         windowBox.innerHTML = `
                             <span class="user-query">"${preguntaGuardada}"</span>
-                            <div>${parts[0].trim().replace(/\n/g, '<br>')}</div>
+                            <div>${textProcessat}</div>
                         `;
                         
                         const vins = JSON.parse(parts[1].trim());
@@ -225,13 +236,9 @@
                             `;
                         });
                     } else {
-                        windowBox.innerHTML = `<span class="user-query">"${preguntaGuardada}"</span><p>${data.resposta}</p>`;
+                        // Apliquem la mateixa neteja per a respostes sense fotos
+                        let textSimple = data.resposta.replace(/\*(.*?)\*/g, '<span class="nom-vi-destacat">$1</span>');
+                        windowBox.innerHTML = `<span class="user-query">"${preguntaGuardada}"</span><p>${textSimple}</p>`;
                     }
                 } catch (err) {
                     windowBox.innerHTML = `<p>El sommelier ha tingut un problema. Torna-ho a provar.</p>`;
-                }
-            }
-        });
-    </script>
-</body>
-</html>

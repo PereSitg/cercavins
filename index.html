@@ -50,10 +50,7 @@
         .vins-output { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 20px; margin-top: 25px; }
         .vi-item { background: rgba(0, 0, 0, 0.2); border-radius: 16px; padding: 20px; text-align: center; border: 1px solid rgba(255, 255, 255, 0.05); transition: transform 0.3s ease; }
         .vi-item:hover { transform: translateY(-5px); }
-        
-        /* Ajustem les fotos perquè no es tallin */
         .vi-item img { height: 220px; width: auto; max-width: 100%; object-fit: contain; filter: drop-shadow(0 8px 12px rgba(0,0,0,0.4)); }
-        
         .vi-item .vi-nom { margin-top: 15px; font-size: 0.95rem; font-weight: 800; color: var(--ia-highlight); }
 
         .btn-clear { margin-top: 30px; padding: 12px 25px; background: transparent; border: 1px solid rgba(255,255,255,0.2); color: var(--blanc-pur); border-radius: 50px; cursor: pointer; font-size: 0.8rem; letter-spacing: 1px; text-transform: uppercase; transition: all 0.3s ease; display: block; margin-left: auto; margin-right: auto; }
@@ -61,7 +58,7 @@
         
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         footer { padding: 60px 20px; text-align: center; }
-        footer p { font-size: 0.7rem; letter-spacing: 2px; opacity: 0.3; }
+        footer p { font-size: 0.7rem; letter-spacing: 2px; opacity: 0.5; }
     </style>
 </head>
 <body>
@@ -76,11 +73,11 @@
         <div id="response-container">
             <div id="chat-window"></div>
             <div id="vins-galeria" class="vins-output"></div>
-            <button id="btn-borrar" class="btn-clear">Nova consulta</button>
+            <button id="btn-borrar" class="btn-clear"></button>
         </div>
     </main>
 
-    <footer><p>&copy; 2026 &middot; TOUS DROITS RÉSERVÉS / TOTS ELS DRETS RESERVATS</p></footer>
+    <footer><p id="footer-text"></p></footer>
 
     <script type="module">
         const input = document.getElementById('chat-input');
@@ -88,18 +85,45 @@
         const windowBox = document.getElementById('chat-window');
         const galeria = document.getElementById('vins-galeria');
         const btnBorrar = document.getElementById('btn-borrar');
+        const footerText = document.getElementById('footer-text');
 
+        // DETECCIÓ D'IDIOMA DEL PC
         const userLanguage = navigator.language || navigator.userLanguage;
+        const langCode = userLanguage.split('-')[0];
+
         const langConfigs = {
-            'ca': { placeholder: "Que necessites..?", loading: "El sommelier està consultant el celler...", btn: "Nova consulta" },
-            'es': { placeholder: "¿Qué necesitas?", loading: "El sumiller está consultando la bodega...", btn: "Nueva consulta" },
-            'fr': { placeholder: "Que désirez-vous ?", loading: "Le sommelier consulte la cave...", btn: "Nouvelle recherche" },
-            'en': { placeholder: "How can I help you?", loading: "The sommelier is checking the cellar...", btn: "New search" }
+            'ca': { 
+                placeholder: "Què necessites..?", 
+                loading: "El sommelier està consultant el celler...", 
+                btn: "Nova consulta",
+                footer: "© 2026 · TOTS ELS DRETS RESERVATS" 
+            },
+            'es': { 
+                placeholder: "¿Qué necesitas?", 
+                loading: "El sumiller está consultando la bodega...", 
+                btn: "Nueva consulta",
+                footer: "© 2026 · TODOS LOS DERECHOS RESERVADOS" 
+            },
+            'fr': { 
+                placeholder: "Que désirez-vous ?", 
+                loading: "Le sommelier consulte la cave...", 
+                btn: "Nouvelle recherche",
+                footer: "© 2026 · TOUS DROITS RÉSERVÉS" 
+            },
+            'en': { 
+                placeholder: "How can I help you?", 
+                loading: "The sommelier is checking the cellar...", 
+                btn: "New search",
+                footer: "© 2026 · ALL RIGHTS RESERVED" 
+            }
         };
 
-        const config = langConfigs[userLanguage.split('-')[0]] || langConfigs['en'];
+        const config = langConfigs[langCode] || langConfigs['en'];
+        
+        // APLIQUEM IDIOMA INICIAL
         input.placeholder = config.placeholder;
         btnBorrar.innerText = config.btn;
+        footerText.innerText = config.footer;
 
         btnBorrar.addEventListener('click', () => {
             container.style.display = "none";
@@ -146,30 +170,3 @@
                         windowBox.innerHTML = `
                             <span class="user-query">"${preguntaGuardada}"</span>
                             <div>${pintarNomsVins(textIA, vinsJSON)}</div>
-                        `;
-
-                        galeria.innerHTML = ""; 
-                        vinsJSON.forEach(vi => {
-                            // Netegem la URL d'espais i posem un recanvi si falla (fallback)
-                            const rawImg = vi.imatge ? vi.imatge.trim() : "";
-                            const imgUrl = rawImg !== "" ? rawImg : "https://images.vivino.com/thumbs/default_label_600x600.png";
-
-                            galeria.innerHTML += `
-                                <div class="vi-item">
-                                    <img src="${imgUrl}" 
-                                         alt="${vi.nom}" 
-                                         onerror="this.onerror=null;this.src='https://images.vivino.com/thumbs/default_label_600x600.png';">
-                                    <div class="vi-nom">${vi.nom}</div>
-                                </div>`;
-                        });
-                    } else {
-                        windowBox.innerHTML = `<span class="user-query">"${preguntaGuardada}"</span><div>${data.resposta.replace(/\*/g, '')}</div>`;
-                    }
-                } catch (err) {
-                    windowBox.innerHTML = `<p>Error de connexió.</p>`;
-                }
-            }
-        });
-    </script>
-</body>
-</html>

@@ -19,7 +19,7 @@ module.exports = async (req, res) => {
     
     const db = admin.firestore();
     
-    // 2. Agafem NOMÉS 10 VINS per a la prova (així no donarà error de longitud)
+    // 2. Prova de seguretat: Només 10 vins
     const snapshot = await db.collection('cercavins').limit(10).get();
     let celler = '';
     snapshot.forEach(doc => { 
@@ -27,7 +27,7 @@ module.exports = async (req, res) => {
       celler += `${d.nom}: ${d.preu}€; `; 
     });
 
-    // 3. Crida a Groq amb el model estàndard
+    // 3. Crida a Groq amb el model ACTUALITZAT
     const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -35,7 +35,8 @@ module.exports = async (req, res) => {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        model: 'llama3-8b-8192', 
+        // Hem posat el 70b perquè el 8b vell ha caducat avui mateix
+        model: 'llama-3.3-70b-versatile', 
         messages: [
           { role: 'system', content: 'Ets el sommelier de Cercavins. Respon breu en català. Vins: ' + celler },
           { role: 'user', content: pregunta }

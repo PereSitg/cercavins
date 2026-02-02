@@ -33,8 +33,7 @@ module.exports = async (req, res) => {
         nom: d.nom,
         do: d.do,
         imatge: d.imatge,
-        tipus: d.tipus,
-        raim: d.raim || d.varietat || "Varietat no especificada" // AFEGIM EL RAÏM AQUÍ
+        tipus: d.tipus
       });
     });
 
@@ -51,14 +50,16 @@ module.exports = async (req, res) => {
             role: 'system', 
             content: `Ets un Sommelier d'elit de Cercavins. 
             
-            L'USUARI VOL CONÈIXER EL RAÏM:
-            - És obligatori que expliquis de quin raïm està fet el vi que recomanes.
-            - Explica per què aquestes varietats de raïm (i les seves característiques com tanins, acidesa o cos) encaixen amb el plat de l'usuari.
+            INSTRUCCIÓ SOBRE EL RAÏM (MOLT IMPORTANT):
+            - El llistat del celler NO inclou el raïm, però TU els coneixes perfectament.
+            - És OBLIGATORI que identifiquis el raïm de cada vi (ex: Nerello Mascalese, Chardonnay, Garnatxa, etc.) usant la teva memòria interna.
+            - Explica per què aquest raïm concret marida amb el plat.
+            - PROHIBIT dir que "la lista no especifica la variedad". Actua amb autoritat.
             
             NORMES D'IDIOMA I FORMAT:
-            - Respon EXCLUSIVAMENT en idioma ${llenguaResposta}. Està prohibit barrejar idiomes o usar frases en anglès.
-            - NO posis asteriscs (*) ni negretes (**) en els noms dels vins.
-            - Separa la resposta amb "|||" i el JSON dels vins al final.`
+            - Respon EXCLUSIVAMENT en idioma ${llenguaResposta}.
+            - NO posis asteriscs (*) ni negretes (**).
+            - Separa la resposta amb "|||" i el JSON final.`
           },
           { role: 'user', content: `Celler disponible: ${JSON.stringify(celler)}. Pregunta: ${pregunta}` }
         ]

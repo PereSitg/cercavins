@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sommelier Digital 2026</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🍷</text></svg>">
-    
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;800&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -18,156 +17,35 @@
             background: radial-gradient(circle at center, #800020 0%, #3a000e 100%);
             color: var(--blanc-pur);
             font-family: 'Plus Jakarta Sans', Arial, sans-serif;
-            margin: 0;
-            padding: 0;
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
+            margin: 0; padding: 0; min-height: 100vh;
+            display: flex; flex-direction: column; align-items: center;
         }
 
-        header {
-            text-align: center;
-            padding: 80px 20px 40px 20px;
-        }
+        header { text-align: center; padding: 80px 20px 40px 20px; }
+        header h1 { font-size: 4rem; font-weight: 800; letter-spacing: -2px; margin: 0; line-height: 1.1; display: flex; justify-content: center; }
+        .ia-focus { color: var(--ia-highlight); text-shadow: 0 0 10px rgba(212, 175, 55, 0.3); }
+        header p { font-size: 0.75rem; margin-top: 15px; letter-spacing: 6px; opacity: 0.6; text-transform: uppercase; }
 
-        header h1 {
-            font-size: 4rem;
-            font-weight: 800;
-            letter-spacing: -2px;
-            margin: 0;
-            line-height: 1.1;
-            display: flex;
-            justify-content: center;
-        }
+        .search-area { width: 90%; max-width: 700px; display: flex; flex-direction: column; align-items: center; flex-grow: 1; }
+        #chat-input { width: 100%; padding: 22px 35px; border-radius: 100px; border: 1px solid rgba(255, 255, 255, 0.2); background: rgba(255, 255, 255, 0.05); color: white; font-size: 1.1rem; text-align: center; outline: none; transition: all 0.4s ease; box-sizing: border-box; }
+        #chat-input:focus { background: rgba(255, 255, 255, 0.12); border-color: rgba(255, 255, 255, 0.4); }
 
-        .ia-focus {
-            color: var(--ia-highlight);
-            text-shadow: 0 0 10px rgba(212, 175, 55, 0.3);
-        }
+        #response-container { width: 100%; margin-top: 40px; background: rgba(255, 255, 255, 0.07); border-radius: 24px; padding: 40px; border: 1px solid rgba(255, 255, 255, 0.1); backdrop-filter: blur(20px); display: none; animation: fadeIn 0.6s ease-out; box-sizing: border-box; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
-        header p {
-            font-size: 0.75rem;
-            margin-top: 15px;
-            letter-spacing: 6px;
-            opacity: 0.6;
-            text-transform: uppercase;
-        }
+        #chat-window { font-size: 1.15rem; line-height: 1.8; text-align: left; margin-bottom: 30px; }
+        .user-query { color: var(--ia-highlight); font-weight: 800; display: block; margin-bottom: 15px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px; }
+        
+        /* AQUESTA CLASSE ÉS LA QUE PINTA EL NOM DEL VI */
+        .nom-vi-destacat { color: var(--ia-highlight) !important; font-weight: 800; display: inline; }
 
-        .search-area {
-            width: 90%;
-            max-width: 700px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            flex-grow: 1;
-        }
+        .vins-output { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 20px; margin-top: 25px; }
+        .vi-item { background: rgba(0, 0, 0, 0.2); border-radius: 16px; padding: 20px; text-align: center; border: 1px solid rgba(255, 255, 255, 0.05); }
+        .vi-item img { height: 180px; width: auto; filter: drop-shadow(0 8px 12px rgba(0,0,0,0.4)); }
 
-        #chat-input {
-            width: 100%;
-            padding: 22px 35px;
-            border-radius: 100px;
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            background: rgba(255, 255, 255, 0.05);
-            color: white;
-            font-size: 1.1rem;
-            text-align: center;
-            outline: none;
-            transition: all 0.4s ease;
-            box-sizing: border-box;
-        }
-
-        #chat-input:focus {
-            background: rgba(255, 255, 255, 0.12);
-            border-color: rgba(255, 255, 255, 0.4);
-        }
-
-        #response-container {
-            width: 100%;
-            margin-top: 40px;
-            background: rgba(255, 255, 255, 0.07);
-            border-radius: 24px;
-            padding: 40px;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(20px);
-            display: none;
-            animation: fadeIn 0.6s ease-out;
-            box-sizing: border-box;
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        #chat-window {
-            font-size: 1.15rem;
-            line-height: 1.8;
-            text-align: left;
-            margin-bottom: 30px;
-        }
-
-        .user-query {
-            color: var(--ia-highlight);
-            font-weight: 800;
-            display: block;
-            margin-bottom: 15px;
-            border-bottom: 1px solid rgba(255,255,255,0.1);
-            padding-bottom: 10px;
-        }
-
-        .nom-vi-destacat {
-            color: var(--ia-highlight);
-            font-weight: 800;
-            display: inline;
-        }
-
-        .vins-output {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 20px;
-            margin-top: 25px;
-        }
-
-        .vi-item {
-            background: rgba(0, 0, 0, 0.2);
-            border-radius: 16px;
-            padding: 20px;
-            text-align: center;
-            border: 1px solid rgba(255, 255, 255, 0.05);
-        }
-
-        .vi-item img {
-            height: 180px;
-            width: auto;
-            filter: drop-shadow(0 8px 12px rgba(0,0,0,0.4));
-        }
-
-        .btn-clear {
-            margin-top: 30px;
-            padding: 12px 25px;
-            background: transparent;
-            border: 1px solid rgba(255,255,255,0.2);
-            color: var(--blanc-pur);
-            border-radius: 50px;
-            cursor: pointer;
-            font-size: 0.8rem;
-            letter-spacing: 1px;
-            text-transform: uppercase;
-            transition: all 0.3s ease;
-            display: block;
-            margin-left: auto;
-            margin-right: auto;
-        }
-
-        .btn-clear:hover {
-            background: rgba(255,255,255,0.1);
-            border-color: var(--ia-highlight);
-            color: var(--ia-highlight);
-        }
-
+        .btn-clear { margin-top: 30px; padding: 12px 25px; background: transparent; border: 1px solid rgba(255,255,255,0.2); color: var(--blanc-pur); border-radius: 50px; cursor: pointer; font-size: 0.8rem; letter-spacing: 1px; text-transform: uppercase; transition: all 0.3s ease; display: block; margin-left: auto; margin-right: auto; }
+        .btn-clear:hover { background: rgba(255,255,255,0.1); border-color: var(--ia-highlight); color: var(--ia-highlight); }
         .pensant { font-style: italic; opacity: 0.5; text-align: center; width: 100%; }
-
         footer { padding: 60px 20px; text-align: center; }
         footer p { font-size: 0.7rem; letter-spacing: 2px; opacity: 0.3; }
     </style>
@@ -181,7 +59,6 @@
 
     <main class="search-area">
         <input type="text" id="chat-input" placeholder="Que necessites..?" maxlength="500" autocomplete="off">
-        
         <div id="response-container">
             <div id="chat-window"></div>
             <div id="vins-galeria" class="vins-output"></div>
@@ -189,9 +66,7 @@
         </div>
     </main>
 
-    <footer>
-        <p>&copy; 2026 &middot; TOTS ELS DRETS RESERVATS</p>
-    </footer>
+    <footer><p>&copy; 2026 &middot; TOTS ELS DRETS RESERVATS</p></footer>
 
     <script type="module">
         const input = document.getElementById('chat-input');
@@ -228,26 +103,23 @@
                     const processarText = (txt) => {
                         return txt.trim()
                             .replace(/\n/g, '<br>')
-                            // Aquesta línia és la clau: neteja asteriscs dobles o simples i posa el span
+                            // NETEJA REAL: Busca qualsevol text entre * o ** i l'embolcalla amb el span groc SENSE els asteriscs
                             .replace(/\*{1,2}([^*]+)\*{1,2}/g, '<span class="nom-vi-destacat">$1</span>');
                     };
 
                     if (data.resposta.includes('|||')) {
                         const parts = data.resposta.split('|||');
-                        
                         windowBox.innerHTML = `
                             <span class="user-query">"${preguntaGuardada}"</span>
                             <div>${processarText(parts[0])}</div>
                         `;
-                        
                         const vins = JSON.parse(parts[1].trim());
                         vins.forEach(vi => {
                             galeria.innerHTML += `
                                 <div class="vi-item">
                                     <img src="${vi.imatge}" alt="${vi.nom}">
                                     <div style="margin-top:10px; font-size:0.9rem;">${vi.nom}</div>
-                                </div>
-                            `;
+                                </div>`;
                         });
                     } else {
                         windowBox.innerHTML = `

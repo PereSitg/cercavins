@@ -4,16 +4,11 @@ module.exports = async (req, res) => {
   if (req.method !== 'POST') return res.status(405).send('Mètode no permès');
 
   try {
-    // Afegim 'idioma' que ve des del front-end
     const { pregunta, idioma } = req.body;
-
-    // Detectem l'idioma del sistema
-    let llenguaResposta = "CATALÀ";
-    if (idioma) {
-        if (idioma.startsWith('es')) llenguaResposta = "CASTELLÀ (ESPAÑOL)";
-        else if (idioma.startsWith('fr')) llenguaResposta = "FRANCÈS (FRANÇAIS)";
-        else if (idioma.startsWith('en')) llenguaResposta = "ANGLÈS (ENGLISH)";
-    }
+    let llengua = "CATALÀ";
+    if (idioma?.startsWith('es')) llengua = "CASTELLÀ";
+    else if (idioma?.startsWith('fr')) llengua = "FRANCÈS";
+    else if (idioma?.startsWith('en')) llengua = "ANGLÈS";
 
     if (!admin.apps.length) {
       admin.initializeApp({
@@ -26,17 +21,11 @@ module.exports = async (req, res) => {
     }
     
     const db = admin.firestore();
-    const snapshot = await db.collection('cercavins').limit(20).get(); 
+    const snapshot = await db.collection('cercavins').limit(15).get(); 
     let celler = [];
-    
     snapshot.forEach(doc => { 
       const d = doc.data();
-      celler.push({
-        nom: d.nom,
-        do: d.do,
-        imatge: d.imatge, 
-        tipus: d.tipus
-      });
+      celler.push({ nom: d.nom, do: d.do, imatge: d.imatge });
     });
 
     const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -51,12 +40,10 @@ module.exports = async (req, res) => {
           { 
             role: 'system', 
             content: `Ets el sommelier de Cercavins. 
-            NORMES:
-            1. Respon SEMPRE en ${llenguaResposta}.
-            2. Per a cada vi que recomanis, identifica el seu RAÏM usant la teva memòria interna (ex: Nerello Mascalese, Chardonnay, Garnatxa). Explica breument per què aquest raïm va bé amb el plat.
-            3. NO MENCIONIS EL PREU.
-            4. Recomana 3 o 4 vins.
-            5. Al final, afegeix "|||" i el JSON (nom, do, imatge).`
+            - Respon en ${llengua}. 
+            - Per cada vi, IDENTIFICA EL RAÏM (ex: Xarel·lo, Pinot Noir) usant el que saps de cada marca.
+            - Explica el maridatge basant-te en les característiques del raïm.
+            - Format net, sense asteriscs. Separa amb ||| i el JSON.`
           },
           { role: 'user', content: `Vins: ${JSON.stringify(celler)}. Pregunta: ${pregunta}` }
         ]
@@ -65,7 +52,6 @@ module.exports = async (req, res) => {
 
     const data = await response.json();
     res.status(200).json({ resposta: data.choices[0].message.content });
-
   } catch (error) {
     res.status(500).json({ resposta: "ERROR: " + error.message });
   }

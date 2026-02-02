@@ -1,4 +1,4 @@
-/* 1. RESET DE SEGURETAT */
+/* 1. RESET DE SEGURETAT I TIPOGRAFIA */
 * {
     box-sizing: border-box;
     margin: 0;
@@ -13,7 +13,7 @@ body {
     display: flex;
     flex-direction: column;
     align-items: center; 
-    overflow-x: hidden; /* Crucial per a mòbil */
+    overflow-x: hidden; 
     width: 100%;
 }
 
@@ -31,9 +31,12 @@ header h1 {
     margin-bottom: 10px;
 }
 
+.ia-focus { color: #d4af37; }
+
 /* 2. AREA DE CERCA I RESPOSTA: ALINEACIÓ PERFECTA */
+/* He unificat els marges per evitar salts visuals */
 .search-area, #response-container {
-    width: 95%; /* Una mica més d'aire als costats en mòbils */
+    width: 95%; 
     max-width: 700px; 
     margin: 0 auto;
 }
@@ -56,27 +59,33 @@ header h1 {
     outline: none;
     transition: all 0.3s ease;
     box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+    -webkit-appearance: none; /* Evita estils rars a iOS */
+}
+
+#chat-input:focus {
+    border-color: #d4af37;
+    background: rgba(255, 255, 255, 0.1);
 }
 
 /* 3. CAIXA DE RESPOSTA RESPONSIVE */
 #response-container {
     margin-top: 20px;
-    padding: 25px; /* Reduït una mica per a mòbils */
+    padding: 25px;
     background: rgba(255, 255, 255, 0.08);
     border-radius: 20px;
     backdrop-filter: blur(20px);
-    display: none; 
-    flex-direction: column;
-    align-items: center;
+    -webkit-backdrop-filter: blur(20px); /* Suport Safari */
+    display: none; /* Es canviarà a 'flex' o 'block' per JS */
     border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 15px 35px rgba(0,0,0,0.4);
 }
 
 #chat-window {
     width: 100%;
-    font-size: 1.05rem;
-    line-height: 1.6;
+    font-size: 1.1rem;
+    line-height: 1.7;
     text-align: left;
-    margin-bottom: 20px;
+    margin-bottom: 25px;
 }
 
 /* 4. COLORS I GALERIA D'IMATGES */
@@ -87,43 +96,78 @@ header h1 {
 
 .vins-output {
     display: grid;
-    /* Això fa que en mòbil surtin d'1 en 1 o de 2 en 2 segons l'espai */
-    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-    gap: 15px;
+    /* Grid flexible: 1 columna en mòbil petit, 2 o més si hi ha espai */
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 20px;
     width: 100%;
 }
 
 .vi-item {
-    background: rgba(0,0,0,0.2);
-    border-radius: 12px;
-    padding: 15px;
+    background: rgba(0,0,0,0.3);
+    border-radius: 15px;
+    padding: 20px;
     text-align: center;
-    border: 1px solid rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.05);
     display: flex;
     flex-direction: column;
     align-items: center;
+    transition: transform 0.3s ease;
+}
+
+.vi-item:hover {
+    transform: translateY(-5px);
 }
 
 .vi-item img {
-    width: 100%; /* S'adapta al contenidor */
+    width: auto;
+    max-width: 100%;
     height: 180px;
     object-fit: contain;
-    margin-bottom: 10px;
-    display: block; /* Assegura que es vegi */
+    margin-bottom: 12px;
+    filter: drop-shadow(0 5px 15px rgba(0,0,0,0.5));
 }
 
 .vi-nom {
     font-size: 0.9rem;
     color: #d4af37;
     font-weight: 800;
+    line-height: 1.2;
 }
 
-/* Ajust per a mòbils molt petits */
+/* 5. BOTÓ I FOOTER */
+.btn-clear {
+    display: block;
+    margin: 30px auto 0;
+    padding: 12px 25px;
+    border-radius: 50px;
+    border: 1px solid #d4af37;
+    background: transparent;
+    color: #d4af37;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.btn-clear:hover {
+    background: #d4af37;
+    color: #3a000e;
+}
+
+footer {
+    padding: 50px 20px;
+    opacity: 0.6;
+    font-size: 0.8rem;
+    text-align: center;
+    width: 100%;
+    margin-top: auto; /* Empeny el footer al final */
+}
+
+/* 6. AJUST ESPECÍFIC PER A MÒBIL */
 @media (max-width: 480px) {
-    #response-container {
-        padding: 15px;
-    }
-    header h1 {
-        font-size: 2.2rem;
-    }
+    header { padding: 40px 15px 20px; }
+    header h1 { font-size: 2.2rem; }
+    #response-container { padding: 18px; width: 92%; }
+    .vins-output { grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; }
+    .vi-item { padding: 12px; }
+    .vi-item img { height: 140px; }
 }

@@ -68,7 +68,7 @@ header p {
 
 #response-container {
     width: 90%;
-    max-width: 800px; /* Una mica més ample per les fotos */
+    max-width: 800px;
     margin: 40px auto;
     background: rgba(255, 255, 255, 0.08);
     border-radius: 24px;
@@ -93,9 +93,15 @@ header p {
 
 #chat-window {
     font-size: 1.1rem;
-    line-height: 1.7; /* Més espai entre línies */
-    text-align: left; /* Text a l'esquerra per millor lectura */
+    line-height: 1.7;
+    text-align: left;
     margin-bottom: 30px;
+}
+
+/* RESSALTAT DE VINS (Substitueix els asteriscs) */
+.vi-destacat {
+    color: var(--ia-champagne);
+    font-weight: 800;
 }
 
 .vins-grid {
@@ -103,53 +109,3 @@ header p {
     flex-wrap: wrap;
     gap: 20px;
     justify-content: center;
-    margin-top: 20px;
-}
-
-.vi-card {
-    background: rgba(0, 0, 0, 0.2);
-    border-radius: 15px;
-    padding: 15px;
-    width: 160px;
-    text-align: center;
-    border: 1px solid rgba(255, 255, 255, 0.05);
-}
-
-.vi-card img {
-    height: 180px;
-    width: auto;
-    object-fit: contain;
-    margin-bottom: 10px;
-    filter: drop-shadow(0 5px 15px rgba(0,0,0,0.4));
-}
-
-.vi-card h4 {
-    font-size: 0.85rem;
-    margin: 5px 0;
-    line-height: 1.2;
-}
-
-.vi-card p {
-    font-size: 0.7rem;
-    opacity: 0.5;
-    margin: 0;
-}
-
-.pensant { font-style: italic; opacity: 0.5; text-align: center; width: 100%; }
-
-@keyframes fadeIn {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: translateY(0); }
-}
-
-footer {
-    padding: 60px 20px;
-    text-align: center;
-}
-
-footer p {
-    font-size: 0.7rem;
-    text-transform: uppercase;
-    letter-spacing: 2px;
-    opacity: 0.3;
-}

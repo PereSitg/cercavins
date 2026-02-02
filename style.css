@@ -34,7 +34,7 @@ header h1 {
 
 .ia-focus {
     color: var(--ia-highlight);
-    text-shadow: 0 0 5px rgba(212, 175, 55, 0.2);
+    text-shadow: 0 0 10px rgba(212, 175, 55, 0.4);
 }
 
 header p {
@@ -96,17 +96,17 @@ header p {
 }
 
 #chat-window {
-    font-size: 1.1rem;
-    line-height: 1.7;
+    font-size: 1.15rem;
+    line-height: 1.8;
     text-align: left;
     margin-bottom: 30px;
 }
 
-/* RESSALTAT DE VINS (Dins de la frase) */
+/* RESSALTAT DE VINS (SENSE ASTERISCS) */
 .nom-vi-destacat {
     color: var(--ia-highlight);
     font-weight: 800;
-    display: inline;
+    display: inline; /* Això evita que el nom salti de línia */
 }
 
 /* QUADRÍCULA DE VINS */
@@ -132,7 +132,7 @@ header p {
     width: auto;
     object-fit: contain;
     margin-bottom: 10px;
-    filter: drop-shadow(0 5px 15px rgba(0,0,0,0.4));
+    filter: drop-shadow(0 8px 15px rgba(0,0,0,0.5));
 }
 
 /* BOTÓ BORRAR / NOVA CONSULTA */

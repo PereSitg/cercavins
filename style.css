@@ -2,7 +2,7 @@
 :root {
     --ruby-wine: #702132;
     --blanc-pur: #ffffff;
-    --ia-champagne: #d4af37;
+    --ia-highlight: #d4af37;
     --ombra: rgba(0, 0, 0, 0.4);
 }
 
@@ -33,8 +33,7 @@ header h1 {
 }
 
 .ia-focus {
-    color: var(--ia-champagne);
-    font-style: normal;
+    color: var(--ia-highlight);
     text-shadow: 0 0 5px rgba(212, 175, 55, 0.2);
 }
 
@@ -85,10 +84,10 @@ header p {
     box-sizing: border-box;
 }
 
-/* ARREGLAMENT DEL TEXT I LES FOTOS */
-.pregunta-u {
+/* ESTRUCTURES DE LA RESPOSTA */
+.user-query {
     display: block;
-    color: var(--ia-champagne);
+    color: var(--ia-highlight);
     font-weight: 800;
     margin-bottom: 20px;
     font-size: 1.2rem;
@@ -104,21 +103,22 @@ header p {
 }
 
 /* RESSALTAT DE VINS (Dins de la frase) */
-.vi-destacat {
-    color: var(--ia-champagne);
+.nom-vi-destacat {
+    color: var(--ia-highlight);
     font-weight: 800;
     display: inline;
 }
 
-.vins-grid {
-    display: flex;
-    flex-wrap: wrap;
+/* QUADRÍCULA DE VINS */
+.vins-output {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
     gap: 20px;
-    justify-content: center;
-    margin-top: 20px;
+    justify-items: center;
+    margin-top: 25px;
 }
 
-.vi-card {
+.vi-item {
     background: rgba(0, 0, 0, 0.2);
     border-radius: 15px;
     padding: 15px;
@@ -127,7 +127,7 @@ header p {
     border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
-.vi-card img {
+.vi-item img {
     height: 180px;
     width: auto;
     object-fit: contain;
@@ -135,15 +135,8 @@ header p {
     filter: drop-shadow(0 5px 15px rgba(0,0,0,0.4));
 }
 
-.vi-card h4 {
-    font-size: 0.85rem;
-    margin: 5px 0;
-    font-weight: 400;
-    color: rgba(255,255,255,0.9);
-}
-
 /* BOTÓ BORRAR / NOVA CONSULTA */
-.btn-borrar {
+.btn-clear {
     display: block;
     margin: 30px auto 0;
     padding: 12px 28px;
@@ -158,8 +151,33 @@ header p {
     transition: all 0.3s ease;
 }
 
-.btn-borrar:hover {
+.btn-clear:hover {
     background: rgba(255,255,255,0.1);
-    border-color: var(--ia-champagne);
-    color: var(--ia-champagne);
-    box-shadow: 0 0 15px rgba(212, 175, 55, 0.
+    border-color: var(--ia-highlight);
+    color: var(--ia-highlight);
+    box-shadow: 0 0 15px rgba(212, 175, 55, 0.2);
+}
+
+.pensant { 
+    font-style: italic; 
+    opacity: 0.5; 
+    text-align: center; 
+    width: 100%; 
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(15px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+footer { 
+    padding: 60px 20px; 
+    text-align: center; 
+}
+
+footer p { 
+    font-size: 0.7rem; 
+    text-transform: uppercase; 
+    letter-spacing: 2px; 
+    opacity: 0.3; 
+}

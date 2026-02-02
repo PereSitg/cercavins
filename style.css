@@ -1,6 +1,6 @@
-/* 1. RESET DE SEGURETAT */
+/* RESET DE SEGURETAT: Això evita que els paddings moguin les coses cap a la dreta */
 * {
-    box-sizing: border-box; /* Això impedeix que els paddings moguin les caixes */
+    box-sizing: border-box;
     margin: 0;
     padding: 0;
 }
@@ -8,16 +8,15 @@
 body {
     background: radial-gradient(circle at center, #800020 0%, #3a000e 100%);
     color: #ffffff;
-    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-family: 'Plus Jakarta Sans', Arial, sans-serif;
     min-height: 100vh;
     display: flex;
     flex-direction: column;
-    align-items: center; /* Centratge horitzontal de tot el cos */
-    overflow-x: hidden; /* Evita el desplaçament lateral */
+    align-items: center; /* Centratge horitzontal de tot el contingut */
+    overflow-x: hidden; /* Evita que la web balli lateralment */
     width: 100%;
 }
 
-/* 2. HEADER TOTALMENT CENTRAT */
 header {
     width: 100%;
     max-width: 800px;
@@ -25,19 +24,20 @@ header {
     text-align: center;
     display: flex;
     flex-direction: column;
-    align-items: center;
+    align-items: center; /* Centra el títol dins del header */
 }
 
 header h1 {
-    font-size: clamp(2.5rem, 7vw, 4.2rem);
-    width: 100%;
-    margin: 0 auto;
+    font-size: clamp(2.5rem, 8vw, 4.2rem);
+    font-weight: 800;
+    line-height: 1.1;
+    margin-bottom: 10px;
 }
 
-/* 3. L'ÀREA DE CERCA QUE NO ES MOURE */
 .search-area {
-    width: 90%;
-    max-width: 650px; /* Mida ideal perquè no s'estiri massa */
+    width: 100%;
+    max-width: 650px; /* Ample ideal de la barra */
+    padding: 0 20px;
     margin: 0 auto;
     display: flex;
     justify-content: center;
@@ -45,27 +45,28 @@ header h1 {
 
 #chat-input {
     width: 100%;
-    padding: 20px 30px;
+    padding: 22px 30px;
     border-radius: 50px;
-    text-align: center; /* Placeholder i text al mig */
-    border: 1px solid rgba(255,255,255,0.2);
-    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: rgba(255, 255, 255, 0.05);
     color: white;
     font-size: 1.1rem;
+    text-align: center; /* Centra el placeholder i el que escrius */
     outline: none;
+    transition: all 0.3s ease;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.3);
 }
 
-/* 4. CONTENIDOR DE RESPOSTA I ERRORS */
+/* Això és el que surt quan la IA respon */
 #response-container {
     width: 90%;
-    max-width: 800px;
+    max-width: 850px;
     margin: 30px auto;
     padding: 30px;
     background: rgba(255, 255, 255, 0.08);
     border-radius: 20px;
     backdrop-filter: blur(20px);
-    display: none; /* Es canvia a 'flex' per JS */
+    display: none; /* Es canvia a flex per JavaScript */
     flex-direction: column;
     align-items: center;
-    text-align: center;
 }

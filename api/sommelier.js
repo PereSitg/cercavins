@@ -4,15 +4,13 @@ module.exports = async (req, res) => {
   if (req.method !== 'POST') return res.status(405).send('Mètode no permès');
 
   try {
-    // 1. Rebem la pregunta i l'idioma detectat per l'ordinador
     const { pregunta, idioma } = req.body;
 
-    // Configurem l'idioma de resposta
     let llenguaResposta = "CATALÀ";
     if (idioma) {
-        if (idioma.startsWith('fr')) llenguaResposta = "FRANCÈS (FRANÇAIS)";
-        else if (idioma.startsWith('es')) llenguaResposta = "CASTELLÀ (CASTELLANO)";
-        else if (idioma.startsWith('en')) llenguaResposta = "ANGLÈS (ENGLISH)";
+        if (idioma.startsWith('fr')) llenguaResposta = "FRANCÈS";
+        else if (idioma.startsWith('es')) llenguaResposta = "CASTELLÀ";
+        else if (idioma.startsWith('en')) llenguaResposta = "ANGLÈS";
     }
 
     if (!admin.apps.length) {
@@ -26,7 +24,6 @@ module.exports = async (req, res) => {
     }
     
     const db = admin.firestore();
-    // Pugem a 40 per tenir prou varietat de blancs/escumosos
     const snapshot = await db.collection('cercavins').limit(40).get(); 
     let celler = [];
     
@@ -36,7 +33,8 @@ module.exports = async (req, res) => {
         nom: d.nom,
         do: d.do,
         imatge: d.imatge,
-        tipus: d.tipus
+        tipus: d.tipus,
+        raim: d.raim || d.varietat || "Varietat no especificada" // AFEGIM EL RAÏM AQUÍ
       });
     });
 
@@ -51,20 +49,18 @@ module.exports = async (req, res) => {
         messages: [
           { 
             role: 'system', 
-            content: `Ets un Sommelier d'elit. La teva prioritat absoluta és la COHERÈNCIA del maridatge.
+            content: `Ets un Sommelier d'elit de Cercavins. 
             
-            NORMES DE MARIDATGE:
-            1. Si demanen marisc (percebes, gambes, etc.), selecciona NOMÉS blancs o escumosos. No recomanis MAI vins negres amb percebes.
-            2. És millor recomanar només 1 o 2 vins si són els únics que realment lliguen, que intentar omplir la llista amb vins que no toquen.
-            3. Explica breument per què el vi triat és ideal per al plat.
-
-            NORMES DE FORMAT:
-            1. Respon SEMPRE en idioma ${llenguaResposta}.
-            2. NO posis asteriscs (*) ni negretes (**) en els noms dels vins. Escriu-los tal qual estan al llistat.
-            3. NO mencionis preus.
-            4. Al final de tot, afegeix la cadena "|||" i després el JSON amb els vins recomanats.`
+            L'USUARI VOL CONÈIXER EL RAÏM:
+            - És obligatori que expliquis de quin raïm està fet el vi que recomanes.
+            - Explica per què aquestes varietats de raïm (i les seves característiques com tanins, acidesa o cos) encaixen amb el plat de l'usuari.
+            
+            NORMES D'IDIOMA I FORMAT:
+            - Respon EXCLUSIVAMENT en idioma ${llenguaResposta}. Està prohibit barrejar idiomes o usar frases en anglès.
+            - NO posis asteriscs (*) ni negretes (**) en els noms dels vins.
+            - Separa la resposta amb "|||" i el JSON dels vins al final.`
           },
-          { role: 'user', content: `Celler disponible: ${JSON.stringify(celler)}. Pregunta del client: ${pregunta}` }
+          { role: 'user', content: `Celler disponible: ${JSON.stringify(celler)}. Pregunta: ${pregunta}` }
         ]
       })
     });

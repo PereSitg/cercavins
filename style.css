@@ -16,6 +16,7 @@ body {
     display: flex;
     flex-direction: column;
     align-items: center;
+    overflow-x: hidden;
 }
 
 header {
@@ -88,7 +89,7 @@ header p {
 
 .user-query {
     display: block;
-    color: rgba(255, 255, 255, 0.5); /* Pregunta més subtil */
+    color: rgba(255, 255, 255, 0.5);
     font-weight: 400;
     margin-bottom: 25px;
     font-size: 0.9rem;
@@ -105,7 +106,7 @@ header p {
     color: var(--blanc-pur);
 }
 
-/* EL NOM DEL VI: Ara amb !important per assegurar el groc */
+/* EL NOM DEL VI EN GROC */
 .nom-vi-destacat {
     color: var(--ia-highlight) !important;
     font-weight: 800;
@@ -113,7 +114,7 @@ header p {
     letter-spacing: 0.5px;
 }
 
-/* QUADRÍCULA DE VINS ESTIL CARTA */
+/* QUADRÍCULA DE VINS */
 .vins-output {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -129,63 +130,4 @@ header p {
     width: 100%;
     max-width: 200px;
     text-align: center;
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    transition: transform 0.3s ease;
-}
-
-.vi-item:hover {
-    transform: translateY(-5px);
-    background: rgba(255, 255, 255, 0.06);
-}
-
-.vi-item img {
-    height: 220px; /* Una mica més grans */
-    width: auto;
-    object-fit: contain;
-    margin-bottom: 15px;
-    filter: drop-shadow(0 12px 20px rgba(0,0,0,0.6));
-}
-
-.vi-item div {
-    font-weight: 800;
-    color: var(--ia-highlight);
-    font-size: 0.95rem;
-}
-
-.btn-clear {
-    display: block;
-    margin: 40px auto 0;
-    padding: 14px 32px;
-    background: transparent;
-    color: var(--blanc-pur);
-    border: 1px solid rgba(255,255,255,0.3);
-    border-radius: 50px;
-    cursor: pointer;
-    font-size: 0.75rem;
-    text-transform: uppercase;
-    letter-spacing: 2px;
-    transition: all 0.3s ease;
-}
-
-.btn-clear:hover {
-    background: var(--ia-highlight);
-    border-color: var(--ia-highlight);
-    color: #000; /* Contrast al fer hover */
-    font-weight: 800;
-}
-
-.pensant { 
-    font-style: italic; 
-    opacity: 0.6; 
-    text-align: center; 
-    width: 100%;
-    letter-spacing: 1px;
-}
-
-@keyframes fadeIn {
-    from { opacity: 0; transform: translateY(15px); }
-    to { opacity: 1; transform: translateY(0); }
-}
-
-footer { padding: 80px 20px; text-align: center; }
-footer p { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 3px; opacity: 0.4; }
+    border: 1px solid rgba(255, 255,

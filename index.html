@@ -8,27 +8,77 @@
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;800&display=swap" rel="stylesheet">
     <style>
         :root { --ia-highlight: #d4af37; --blanc: #ffffff; }
-        body { background: radial-gradient(circle at center, #800020 0%, #3a000e 100%); color: var(--blanc); font-family: 'Plus Jakarta Sans', sans-serif; margin: 0; min-height: 100vh; display: flex; flex-direction: column; align-items: center; }
-        header { text-align: center; padding: 60px 20px 30px; }
+        
+        * { box-sizing: border-box; margin: 0; padding: 0; } /* Reset fonamental per alinear */
+
+        body { 
+            background: radial-gradient(circle at center, #800020 0%, #3a000e 100%); 
+            color: var(--blanc); 
+            font-family: 'Plus Jakarta Sans', sans-serif; 
+            min-height: 100vh; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            overflow-x: hidden;
+        }
+
+        header { text-align: center; padding: 60px 20px 30px; width: 100%; }
         header h1 { font-size: 3.5rem; font-weight: 800; margin: 0; }
         .ia-focus { color: var(--ia-highlight); }
-        .search-area { width: 90%; max-width: 700px; flex-grow: 1; margin-top: 20px; }
-        #chat-input { width: 100%; padding: 20px 30px; border-radius: 50px; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.05); color: white; font-size: 1.1rem; text-align: center; outline: none; }
-        #response-container { width: 100%; margin-top: 30px; background: rgba(255,255,255,0.07); border-radius: 20px; padding: 30px; display: none; box-sizing: border-box; }
-        #chat-window { font-size: 1.1rem; line-height: 1.6; margin-bottom: 20px; }
-        .nom-vi-destacat { color: var(--ia-highlight); font-weight: 800; }
-        .vins-output { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; }
+
+        /* AREA DE CERCA I RESPOSTA ALINEADES AL 100% */
+        .search-area { 
+            width: 90%; 
+            max-width: 700px; 
+            margin: 20px auto 0 auto; 
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        #chat-input { 
+            width: 100%; 
+            padding: 20px 30px; 
+            border-radius: 50px; 
+            border: 1px solid rgba(255,255,255,0.2); 
+            background: rgba(255,255,255,0.05); 
+            color: white; 
+            font-size: 1.1rem; 
+            text-align: center; 
+            outline: none; 
+        }
+
+        #response-container { 
+            width: 100%; /* Ocupa el mateix que la search-area (700px) */
+            margin-top: 30px; 
+            background: rgba(255,255,255,0.07); 
+            border-radius: 20px; 
+            padding: 35px; 
+            display: none; 
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+        }
+
+        #chat-window { font-size: 1.1rem; line-height: 1.8; margin-bottom: 25px; text-align: left; }
+        
+        /* CLASSE PER AL NÚMERO I NOM DEL VI */
+        .nom-vi-destacat { color: var(--ia-highlight) !important; font-weight: 800; }
+
+        .vins-output { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; width: 100%; }
         .vi-item { background: rgba(0,0,0,0.2); border-radius: 12px; padding: 15px; text-align: center; border: 1px solid rgba(255,255,255,0.1); }
         .vi-item img { height: 180px; object-fit: contain; margin-bottom: 10px; }
-        .btn-clear { display: block; margin: 20px auto 0; padding: 10px 25px; border-radius: 50px; border: 1px solid var(--ia-highlight); background: transparent; color: var(--ia-highlight); cursor: pointer; }
-        footer { padding: 40px; opacity: 0.6; font-size: 0.8rem; text-align: center; }
+        .vi-nom { font-size: 0.9rem; font-weight: 800; color: var(--ia-highlight); }
+
+        .btn-clear { display: block; margin: 30px auto 0; padding: 12px 30px; border-radius: 50px; border: 1px solid var(--ia-highlight); background: transparent; color: var(--ia-highlight); cursor: pointer; transition: all 0.3s; }
+        .btn-clear:hover { background: var(--ia-highlight); color: black; }
+        
+        footer { padding: 40px; opacity: 0.6; font-size: 0.8rem; text-align: center; width: 100%; }
     </style>
 </head>
 <body>
 
     <header>
         <h1>SommelierDig<span class="ia-focus">i</span>t<span class="ia-focus">a</span>l</h1>
-        <p>BY PERE BADIA I LORENZ</p>
+        <p style="letter-spacing: 3px; font-size: 0.7rem; margin-top: 10px; opacity: 0.8;">BY PERE BADIA I LORENZ</p>
     </header>
 
     <main class="search-area">
@@ -49,22 +99,15 @@
         const windowBox = document.getElementById('chat-window');
         const galeria = document.getElementById('vins-galeria');
         const btnBorrar = document.getElementById('btn-borrar');
-        const footerText = document.getElementById('footer-text');
 
-        // Idiomes
         const langConfigs = {
-            'ca': { placeholder: "Que necessites..?", loading: "Consultant el celler...", btn: "Nova consulta", footer: "© 2026 · TOTS ELS DRETS RESERVATS" },
-            'es': { placeholder: "¿Qué necesitas?", loading: "Consultando bodega...", btn: "Nueva consulta", footer: "© 2026 · TODOS LOS DERECHOS RESERVADOS" },
-            'fr': { placeholder: "Que désirez-vous ?", loading: "Consultation de la cave...", btn: "Nouvelle recherche", footer: "© 2026 · TOUS DROITS RÉSERVÉS" }
+            'ca': { loading: "Consultant el celler...", btn: "Nova consulta" },
+            'es': { loading: "Consultando bodega...", btn: "Nueva consulta" },
+            'fr': { loading: "Consultation de la cave...", btn: "Nouvelle recherche" }
         };
 
         const userLang = (navigator.language || 'ca').split('-')[0];
         const config = langConfigs[userLang] || langConfigs['ca'];
-
-        // Aplicar textos immediatament
-        input.placeholder = config.placeholder;
-        btnBorrar.innerText = config.btn;
-        footerText.innerText = config.footer;
 
         btnBorrar.onclick = () => {
             container.style.display = "none";
@@ -72,13 +115,21 @@
             input.focus();
         };
 
-        const pintarNomsVins = (text, vins) => {
-            let res = text.replace(/\*/g, '').replace(/\n/g, '<br>');
-            vins.forEach(v => {
-                const regex = new RegExp(`(${v.nom})`, 'gi');
-                res = res.replace(regex, '<span class="nom-vi-destacat">$1</span>');
-            });
-            return res;
+        // FUNCIÓ MAGICA PER PINTAR NÚMEROS I NOMS
+        const formatarResposta = (text) => {
+            let lineas = text.replace(/\*/g, '').split('\n');
+            
+            let htmlFinal = lineas.map(linea => {
+                let l = linea.trim();
+                // Si la línia comença per un número (1. Nom o 1- Nom)
+                if (/^\d+[\.\-]/.test(l)) {
+                    // Pintem el número i el nom fins que trobi dos punts o el final de la línia
+                    return l.replace(/^(\d+[\.\-]\s*)([^:]+)/, '<span class="nom-vi-destacat">$1$2</span>');
+                }
+                return l;
+            }).join('<br>');
+            
+            return htmlFinal;
         };
 
         input.onkeypress = async (e) => {
@@ -97,13 +148,21 @@
                     });
                     const data = await res.json();
                     
-                    if (data.resposta.includes('|||')) {
-                        const [text, json] = data.resposta.split('|||');
-                        const vins = JSON.parse(json.trim());
-                        
-                        windowBox.innerHTML = pintarNomsVins(text, vins);
-                        
-                        vins.forEach(v => {
+                    let textPur = data.resposta;
+                    let vinsJSON = [];
+
+                    if (textPur.includes('|||')) {
+                        const parts = textPur.split('|||');
+                        textPur = parts[0];
+                        try { vinsJSON = JSON.parse(parts[1].trim()); } catch(e) {}
+                    }
+
+                    // Apliquem el format de colors (Número + Nom)
+                    windowBox.innerHTML = formatarResposta(textPur);
+                    
+                    // Pintar galeria si hi ha JSON
+                    if (vinsJSON.length > 0) {
+                        vinsJSON.forEach(v => {
                             const img = v.imatge || "https://images.vivino.com/thumbs/default_label_600x600.png";
                             galeria.innerHTML += `
                                 <div class="vi-item">
@@ -111,8 +170,6 @@
                                     <div class="vi-nom">${v.nom}</div>
                                 </div>`;
                         });
-                    } else {
-                        windowBox.innerHTML = data.resposta.replace(/\*/g, '');
                     }
                 } catch (err) {
                     windowBox.innerHTML = "Error de connexió.";

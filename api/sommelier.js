@@ -4,15 +4,22 @@ module.exports = async (req, res) => {
   if (req.method !== 'POST') return res.status(405).send('Mètode no permès');
 
   try {
-    // Afegim 'idioma' que ve des del front-end
     const { pregunta, idioma } = req.body;
 
-    // Detectem l'idioma del sistema
     let llenguaResposta = "CATALÀ";
+    let termeUva = "raïm"; 
+    
     if (idioma) {
-        if (idioma.startsWith('es')) llenguaResposta = "CASTELLÀ (ESPAÑOL)";
-        else if (idioma.startsWith('fr')) llenguaResposta = "FRANCÈS (FRANÇAIS)";
-        else if (idioma.startsWith('en')) llenguaResposta = "ANGLÈS (ENGLISH)";
+        if (idioma.startsWith('es')) {
+            llenguaResposta = "CASTELLÀ (ESPAÑOL)";
+            termeUva = "uva";
+        } else if (idioma.startsWith('fr')) {
+            llenguaResposta = "FRANCÈS (FRANÇAIS)";
+            termeUva = "raisin";
+        } else if (idioma.startsWith('en')) {
+            llenguaResposta = "ANGLÈS (ENGLISH)";
+            termeUva = "grape";
+        }
     }
 
     if (!admin.apps.length) {
@@ -51,9 +58,9 @@ module.exports = async (req, res) => {
           { 
             role: 'system', 
             content: `Ets el sommelier de Cercavins. 
-            NORMES:
-            1. Respon SEMPRE en ${llenguaResposta}.
-            2. Per a cada vi que recomanis, identifica el seu RAÏM usant la teva memòria interna (ex: Nerello Mascalese, Chardonnay, Garnatxa). Explica breument per què aquest raïm va bé amb el plat.
+            NORMES CRÍTIQUES:
+            1. Respon SEMPRE en ${llenguaResposta}. Està prohibit barrejar paraules en català si respon l'idioma no és català. (Exemple: si respons en castellà, mai diguis "raïm", digues sempre "${termeUva}").
+            2. Per a cada vi recomanat, identifica la seva varietat de ${termeUva} usant la teva memòria interna. Explica breument per què va bé amb el plat.
             3. NO MENCIONIS EL PREU.
             4. Recomana 3 o 4 vins.
             5. Al final, afegeix "|||" i el JSON (nom, do, imatge).`

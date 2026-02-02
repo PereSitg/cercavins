@@ -4,9 +4,17 @@ module.exports = async (req, res) => {
   if (req.method !== 'POST') return res.status(405).send('Mètode no permès');
 
   try {
-    const { pregunta } = req.body;
+    // Afegim 'idioma' que ve des del front-end
+    const { pregunta, idioma } = req.body;
 
-    // 1. Inicialitzem Firebase
+    // Detectem l'idioma del sistema
+    let llenguaResposta = "CATALÀ";
+    if (idioma) {
+        if (idioma.startsWith('es')) llenguaResposta = "CASTELLÀ (ESPAÑOL)";
+        else if (idioma.startsWith('fr')) llenguaResposta = "FRANCÈS (FRANÇAIS)";
+        else if (idioma.startsWith('en')) llenguaResposta = "ANGLÈS (ENGLISH)";
+    }
+
     if (!admin.apps.length) {
       admin.initializeApp({
         credential: admin.credential.cert({
@@ -18,16 +26,19 @@ module.exports = async (req, res) => {
     }
     
     const db = admin.firestore();
+    const snapshot = await db.collection('cercavins').limit(20).get(); 
+    let celler = [];
     
-    // 2. Prova de seguretat: Només 10 vins
-    const snapshot = await db.collection('cercavins').limit(10).get();
-    let celler = '';
     snapshot.forEach(doc => { 
       const d = doc.data();
-      celler += `${d.nom}: ${d.preu}€; `; 
+      celler.push({
+        nom: d.nom,
+        do: d.do,
+        imatge: d.imatge, 
+        tipus: d.tipus
+      });
     });
 
-    // 3. Crida a Groq amb el model ACTUALITZAT
     const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -35,21 +46,24 @@ module.exports = async (req, res) => {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        // Hem posat el 70b perquè el 8b vell ha caducat avui mateix
         model: 'llama-3.3-70b-versatile', 
         messages: [
-          { role: 'system', content: 'Ets el sommelier de Cercavins. Respon breu en català. Vins: ' + celler },
-          { role: 'user', content: pregunta }
+          { 
+            role: 'system', 
+            content: `Ets el sommelier de Cercavins. 
+            NORMES:
+            1. Respon SEMPRE en ${llenguaResposta}.
+            2. Per a cada vi que recomanis, identifica el seu RAÏM usant la teva memòria interna (ex: Nerello Mascalese, Chardonnay, Garnatxa). Explica breument per què aquest raïm va bé amb el plat.
+            3. NO MENCIONIS EL PREU.
+            4. Recomana 3 o 4 vins.
+            5. Al final, afegeix "|||" i el JSON (nom, do, imatge).`
+          },
+          { role: 'user', content: `Vins: ${JSON.stringify(celler)}. Pregunta: ${pregunta}` }
         ]
       })
     });
 
     const data = await response.json();
-
-    if (data.error) {
-       return res.status(500).json({ resposta: "Error de Groq: " + data.error.message });
-    }
-
     res.status(200).json({ resposta: data.choices[0].message.content });
 
   } catch (error) {

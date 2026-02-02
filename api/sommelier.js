@@ -4,11 +4,7 @@ module.exports = async (req, res) => {
   if (req.method !== 'POST') return res.status(405).send('Mètode no permès');
 
   try {
-    const { pregunta, idioma } = req.body;
-    let llengua = "CATALÀ";
-    if (idioma?.startsWith('es')) llengua = "CASTELLÀ";
-    else if (idioma?.startsWith('fr')) llengua = "FRANCÈS";
-    else if (idioma?.startsWith('en')) llengua = "ANGLÈS";
+    const { pregunta } = req.body;
 
     if (!admin.apps.length) {
       admin.initializeApp({
@@ -21,11 +17,18 @@ module.exports = async (req, res) => {
     }
     
     const db = admin.firestore();
+    // Agafem 20 vins per tenir varietat sense saturar
     const snapshot = await db.collection('cercavins').limit(20).get(); 
     let celler = [];
+    
     snapshot.forEach(doc => { 
       const d = doc.data();
-      celler.push({ nom: d.nom, do: d.do, imatge: d.imatge });
+      celler.push({
+        nom: d.nom,
+        do: d.do,
+        imatge: d.imatge, // El camp de la teva foto
+        tipus: d.tipus
+      });
     });
 
     const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -40,11 +43,11 @@ module.exports = async (req, res) => {
           { 
             role: 'system', 
             content: `Ets el sommelier de Cercavins. 
-            - Respon SEMPRE en ${llengua}. 
-            - Recomana els vins del celler que encaixin amb la pregunta.
-            - NO intentis buscar el tipus de raïm ni dades extra.
-            - Sigues amable i breu.
-            - Format: Text net sense asteriscs + ||| + JSON.`
+            NORMES:
+            1. Respon EN CATALÀ de forma amable.
+            2. NO MENCIONIS EL PREU.
+            3. Recomana 3 o 4 vins que encaixin amb la pregunta.
+            4. Molt important: Al final de tot, afegeix la cadena "|||" i després un JSON amb els objectes dels vins recomanats (nom, do, imatge).`
           },
           { role: 'user', content: `Vins: ${JSON.stringify(celler)}. Pregunta: ${pregunta}` }
         ]
@@ -53,7 +56,8 @@ module.exports = async (req, res) => {
 
     const data = await response.json();
     res.status(200).json({ resposta: data.choices[0].message.content });
+
   } catch (error) {
-    res.status(500).json({ resposta: "ERROR DE CONNEXIÓ: " + error.message });
+    res.status(500).json({ resposta: "ERROR: " + error.message });
   }
 };

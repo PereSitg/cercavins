@@ -200,7 +200,6 @@
         const galeria = document.getElementById('vins-galeria');
         const btnBorrar = document.getElementById('btn-borrar');
 
-        // Lògica per netejar la pantalla
         btnBorrar.addEventListener('click', () => {
             container.style.display = "none";
             input.value = "";
@@ -212,7 +211,6 @@
                 const pregunta = input.value;
                 if (!pregunta) return;
 
-                // Estat inicial de càrrega
                 container.style.display = "block";
                 windowBox.innerHTML = `<p class="pensant">El sommelier està consultant el celler...</p>`;
                 galeria.innerHTML = "";
@@ -227,11 +225,11 @@
                     });
                     const data = await res.json();
                     
-                    // Funció per netejar el text (asteriscs i salts de línia)
                     const processarText = (txt) => {
                         return txt.trim()
                             .replace(/\n/g, '<br>')
-                            .replace(/\*([^*]+)\*/g, '<span class="nom-vi-destacat">$1</span>');
+                            // Aquesta línia és la clau: neteja asteriscs dobles o simples i posa el span
+                            .replace(/\*{1,2}([^*]+)\*{1,2}/g, '<span class="nom-vi-destacat">$1</span>');
                     };
 
                     if (data.resposta.includes('|||')) {

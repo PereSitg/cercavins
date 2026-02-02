@@ -46,6 +46,11 @@ header p {
     text-transform: uppercase;
 }
 
+.search-area {
+    width: 90%;
+    max-width: 700px;
+}
+
 #chat-input {
     width: 100%;
     padding: 22px 35px;
@@ -77,8 +82,10 @@ header p {
     backdrop-filter: blur(20px);
     display: none;
     animation: fadeIn 0.6s ease-out;
+    box-sizing: border-box;
 }
 
+/* ARREGLAMENT DEL TEXT I LES FOTOS */
 .pregunta-u {
     display: block;
     color: var(--ia-champagne);
@@ -96,9 +103,11 @@ header p {
     margin-bottom: 30px;
 }
 
+/* RESSALTAT DE VINS (Dins de la frase) */
 .vi-destacat {
     color: var(--ia-champagne);
     font-weight: 800;
+    display: inline;
 }
 
 .vins-grid {
@@ -128,4 +137,29 @@ header p {
 
 .vi-card h4 {
     font-size: 0.85rem;
-    margin
+    margin: 5px 0;
+    font-weight: 400;
+    color: rgba(255,255,255,0.9);
+}
+
+/* BOTÓ BORRAR / NOVA CONSULTA */
+.btn-borrar {
+    display: block;
+    margin: 30px auto 0;
+    padding: 12px 28px;
+    background: transparent;
+    color: var(--blanc-pur);
+    border: 1px solid rgba(255,255,255,0.3);
+    border-radius: 50px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    transition: all 0.3s ease;
+}
+
+.btn-borrar:hover {
+    background: rgba(255,255,255,0.1);
+    border-color: var(--ia-champagne);
+    color: var(--ia-champagne);
+    box-shadow: 0 0 15px rgba(212, 175, 55, 0.

@@ -45,6 +45,8 @@
 
         #chat-window { font-size: 1.15rem; line-height: 1.8; text-align: left; margin-bottom: 30px; }
         .user-query { color: var(--ia-highlight); font-weight: 800; display: block; margin-bottom: 15px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px; font-style: italic; }
+        
+        /* AQUESTA ÉS LA CLASSE QUE PINTA ELS NOMS */
         .nom-vi-destacat { color: var(--ia-highlight) !important; font-weight: 800; display: inline; }
 
         .vins-output { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 20px; margin-top: 25px; }
@@ -86,9 +88,7 @@
         const galeria = document.getElementById('vins-galeria');
         const btnBorrar = document.getElementById('btn-borrar');
 
-        // DETECCIÓ D'IDIOMA I TEXTOS INTERNS
         const userLanguage = navigator.language || navigator.userLanguage;
-        
         const langConfigs = {
             'ca': { placeholder: "Que necessites..?", loading: "El sommelier està consultant el celler...", btn: "Nova consulta" },
             'es': { placeholder: "¿Qué necesitas?", loading: "El sumiller está consultando la bodega...", btn: "Nueva consulta" },
@@ -96,9 +96,7 @@
             'en': { placeholder: "How can I help you?", loading: "The sommelier is checking the cellar...", btn: "New search" }
         };
 
-        // Seleccionem la config o per defecte anglès si no el trobem
         const config = langConfigs[userLanguage.split('-')[0]] || langConfigs['en'];
-        
         input.placeholder = config.placeholder;
         btnBorrar.innerText = config.btn;
 
@@ -107,6 +105,24 @@
             input.value = "";
             input.focus();
         });
+
+        // LA FUNCIÓ CLAU: Busquem els noms del JSON dins del text i els pintem
+        const pintarNomsVins = (textIA, llistaVins) => {
+            let html = textIA.trim().replace(/\n/g, '<br>');
+            
+            // 1. Netegem qualsevol asterisc que hagi posat la IA
+            html = html.replace(/\*\*/g, '').replace(/\*/g, '');
+
+            // 2. Busquem cada nom de la llista i l'embolcallem amb el span groc
+            llistaVins.forEach(vi => {
+                const nomVi = vi.nom.trim();
+                // Regex per buscar el nom exacte sense importar majúscules
+                const regex = new RegExp(`(${nomVi})`, 'gi');
+                html = html.replace(regex, '<span class="nom-vi-destacat">$1</span>');
+            });
+            
+            return html;
+        };
 
         input.addEventListener('keypress', async (e) => {
             if (e.key === 'Enter') {
@@ -123,28 +139,23 @@
                     const res = await fetch('/api/sommelier', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ 
-                            pregunta: preguntaGuardada,
-                            idioma: userLanguage // Enviem la llengua al servidor
-                        })
+                        body: JSON.stringify({ pregunta: preguntaGuardada, idioma: userLanguage })
                     });
                     const data = await res.json();
                     
-                    const processarText = (txt) => {
-                        return txt.trim()
-                            .replace(/\n/g, '<br>')
-                            .replace(/\*\*(.*?)\*\*/g, '<span class="nom-vi-destacat">$1</span>')
-                            .replace(/\*([^*]+)\*/g, '<span class="nom-vi-destacat">$1</span>');
-                    };
-
                     if (data.resposta.includes('|||')) {
                         const parts = data.resposta.split('|||');
+                        const textIA = parts[0];
+                        const vinsJSON = JSON.parse(parts[1].trim());
+
+                        // Pintem el text amb els noms en groc
                         windowBox.innerHTML = `
                             <span class="user-query">"${preguntaGuardada}"</span>
-                            <div>${processarText(parts[0])}</div>
+                            <div>${pintarNomsVins(textIA, vinsJSON)}</div>
                         `;
-                        const vins = JSON.parse(parts[1].trim());
-                        vins.forEach(vi => {
+
+                        // Galeria de fotos
+                        vinsJSON.forEach(vi => {
                             galeria.innerHTML += `
                                 <div class="vi-item">
                                     <img src="${vi.imatge}" alt="${vi.nom}">
@@ -152,10 +163,14 @@
                                 </div>`;
                         });
                     } else {
-                        windowBox.innerHTML = `<span class="user-query">"${preguntaGuardada}"</span><div>${processarText(data.resposta)}</div>`;
+                        // Resposta sense vins (text net sense asteriscs)
+                        windowBox.innerHTML = `
+                            <span class="user-query">"${preguntaGuardada}"</span>
+                            <div>${data.resposta.replace(/\*/g, '')}</div>
+                        `;
                     }
                 } catch (err) {
-                    windowBox.innerHTML = `<p>Error.</p>`;
+                    windowBox.innerHTML = `<p>Error de connexió.</p>`;
                 }
             }
         });

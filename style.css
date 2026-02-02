@@ -15,13 +15,17 @@ body {
     min-height: 100vh;
     display: flex;
     flex-direction: column;
-    align-items: center;
+    align-items: center; /* Centra tot el contingut horitzontalment */
     overflow-x: hidden;
 }
 
 header {
+    width: 100%;
     text-align: center;
     padding: 100px 20px 40px 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center; /* Asegura que el títol i p estiguin centrats */
 }
 
 header h1 {
@@ -31,6 +35,7 @@ header h1 {
     letter-spacing: -2px;
     margin: 0;
     line-height: 1;
+    width: 100%;
 }
 
 .ia-focus {
@@ -40,15 +45,19 @@ header h1 {
 
 header p {
     font-size: 0.75rem;
-    margin-top: 15px;
+    margin: 15px 0 0 0; /* Ajustat */
     letter-spacing: 6px;
     opacity: 0.6;
     text-transform: uppercase;
+    width: 100%;
 }
 
 .search-area {
     width: 90%;
     max-width: 700px;
+    display: flex;
+    justify-content: center; /* Centra la barra */
+    margin: 0 auto;
 }
 
 #chat-input {
@@ -59,11 +68,16 @@ header p {
     background: rgba(255, 255, 255, 0.05);
     color: white;
     font-size: 1.1rem;
-    text-align: center;
+    text-align: center; /* CENTRA EL TEXT I EL PLACEHOLDER */
     outline: none;
     transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
     box-sizing: border-box;
     box-shadow: 0 10px 30px var(--ombra);
+}
+
+#chat-input::placeholder {
+    text-align: center; /* Reforç per a alguns navegadors */
+    color: rgba(255, 255, 255, 0.4);
 }
 
 #chat-input:focus {
@@ -73,7 +87,7 @@ header p {
 
 /* CONTENIDOR DE RESPOSTA PROFESSIONAL */
 #response-container {
-    width: 90%;
+    width: 95%;
     max-width: 850px;
     margin: 40px auto;
     background: rgba(255, 255, 255, 0.08);
@@ -87,6 +101,11 @@ header p {
     box-shadow: 0 20px 50px rgba(0,0,0,0.5);
 }
 
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
 .user-query {
     display: block;
     color: rgba(255, 255, 255, 0.5);
@@ -96,6 +115,7 @@ header p {
     font-style: italic;
     border-bottom: 1px solid rgba(255,255,255,0.1);
     padding-bottom: 15px;
+    text-align: center; /* Centra la pregunta de l'usuari */
 }
 
 #chat-window {
@@ -106,7 +126,6 @@ header p {
     color: var(--blanc-pur);
 }
 
-/* EL NOM DEL VI EN GROC */
 .nom-vi-destacat {
     color: var(--ia-highlight) !important;
     font-weight: 800;
@@ -114,7 +133,6 @@ header p {
     letter-spacing: 0.5px;
 }
 
-/* QUADRÍCULA DE VINS */
 .vins-output {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -128,6 +146,21 @@ header p {
     border-radius: 20px;
     padding: 20px;
     width: 100%;
-    max-width: 200px;
+    max-width: 220px;
     text-align: center;
-    border: 1px solid rgba(255, 255,
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    transition: transform 0.3s ease;
+}
+
+.vi-item:hover {
+    transform: translateY(-10px);
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.vi-item img {
+    max-width: 100%;
+    height: 200px;
+    object-fit: contain;
+    margin-bottom: 15px;
+    border-radius: 10px;
+}

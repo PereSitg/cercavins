@@ -13,33 +13,29 @@ body {
     display: flex;
     flex-direction: column;
     align-items: center; 
-    overflow-x: hidden;
+    overflow-x: hidden; /* Crucial per a mòbil */
     width: 100%;
 }
 
 header {
     width: 100%;
     max-width: 800px;
-    padding: 80px 20px 40px 20px;
+    padding: 60px 20px 30px 20px;
     text-align: center;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
 }
 
 header h1 {
-    font-size: clamp(2.5rem, 8vw, 4.2rem);
+    font-size: clamp(2rem, 8vw, 4.2rem);
     font-weight: 800;
     line-height: 1.1;
     margin-bottom: 10px;
 }
 
-/* 2. AREA DE CERCA I RESPOSTA: ARA MESUREN EL MATEIX (700px) */
+/* 2. AREA DE CERCA I RESPOSTA: ALINEACIÓ PERFECTA */
 .search-area, #response-container {
-    width: 90%;
-    max-width: 700px; /* Mida única per a les dues caixes */
-    margin-left: auto;
-    margin-right: auto;
+    width: 95%; /* Una mica més d'aire als costats en mòbils */
+    max-width: 700px; 
+    margin: 0 auto;
 }
 
 .search-area {
@@ -50,7 +46,7 @@ header h1 {
 
 #chat-input {
     width: 100%;
-    padding: 22px 30px;
+    padding: 18px 25px;
     border-radius: 50px;
     border: 1px solid rgba(255, 255, 255, 0.2);
     background: rgba(255, 255, 255, 0.05);
@@ -62,10 +58,10 @@ header h1 {
     box-shadow: 0 10px 30px rgba(0,0,0,0.3);
 }
 
-/* 3. CAIXA DE RESPOSTA (IGUAL QUE LA CERCA) */
+/* 3. CAIXA DE RESPOSTA RESPONSIVE */
 #response-container {
-    margin-top: 30px;
-    padding: 35px;
+    margin-top: 20px;
+    padding: 25px; /* Reduït una mica per a mòbils */
     background: rgba(255, 255, 255, 0.08);
     border-radius: 20px;
     backdrop-filter: blur(20px);
@@ -77,23 +73,24 @@ header h1 {
 
 #chat-window {
     width: 100%;
-    font-size: 1.1rem;
-    line-height: 1.8;
-    text-align: left; /* El text llarg es llegeix millor a l'esquerra */
+    font-size: 1.05rem;
+    line-height: 1.6;
+    text-align: left;
+    margin-bottom: 20px;
 }
 
-/* 4. EL GROC PER ALS NÚMEROS I NOMS */
+/* 4. COLORS I GALERIA D'IMATGES */
 .nom-vi-destacat {
-    color: #d4af37 !important; /* Daurat sommelier */
+    color: #d4af37 !important;
     font-weight: 800;
 }
 
 .vins-output {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    /* Això fa que en mòbil surtin d'1 en 1 o de 2 en 2 segons l'espai */
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
     gap: 15px;
     width: 100%;
-    margin-top: 20px;
 }
 
 .vi-item {
@@ -102,10 +99,31 @@ header h1 {
     padding: 15px;
     text-align: center;
     border: 1px solid rgba(255,255,255,0.1);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
 }
 
 .vi-item img {
+    width: 100%; /* S'adapta al contenidor */
     height: 180px;
     object-fit: contain;
     margin-bottom: 10px;
+    display: block; /* Assegura que es vegi */
+}
+
+.vi-nom {
+    font-size: 0.9rem;
+    color: #d4af37;
+    font-weight: 800;
+}
+
+/* Ajust per a mòbils molt petits */
+@media (max-width: 480px) {
+    #response-container {
+        padding: 15px;
+    }
+    header h1 {
+        font-size: 2.2rem;
+    }
 }

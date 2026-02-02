@@ -2,8 +2,12 @@
 :root {
     --ruby-wine: #702132;
     --blanc-pur: #ffffff;
-    --ia-highlight: #d4af37; /* Daurat sommelier */
+    --ia-highlight: #d4af37;
     --ombra: rgba(0, 0, 0, 0.4);
+}
+
+* {
+    box-sizing: border-box; /* Crucial perquè els paddings no desplacin les caixes */
 }
 
 body {
@@ -15,137 +19,70 @@ body {
     min-height: 100vh;
     display: flex;
     flex-direction: column;
-    align-items: center; /* Centratge horitzontal absolut */
+    align-items: center; 
+    justify-content: flex-start;
     overflow-x: hidden;
+    width: 100vw;
 }
 
 header {
     width: 100%;
     max-width: 800px;
     padding: 100px 20px 40px 20px;
+    text-align: center;
     display: flex;
     flex-direction: column;
-    align-items: center; /* Centra els fills (h1 i p) */
-    text-align: center;
+    align-items: center;
 }
 
 header h1 {
-    font-size: 4.2rem;
+    font-size: clamp(2.5rem, 8vw, 4.2rem);
     font-weight: 800;
     letter-spacing: -2px;
-    margin: 0 auto;
+    margin: 0;
     line-height: 1;
-    width: fit-content; /* Evita que el bloc ocupi més del que toca */
-}
-
-.ia-focus {
-    color: var(--ia-highlight);
-    text-shadow: 0 0 10px rgba(212, 175, 55, 0.4);
 }
 
 header p {
     font-size: 0.75rem;
-    margin: 15px auto 0 auto;
+    margin: 15px 0 0 0;
     letter-spacing: 6px;
     opacity: 0.6;
     text-transform: uppercase;
-    width: fit-content;
 }
 
 .search-area {
-    width: 90%;
-    max-width: 700px;
-    display: flex;
-    flex-direction: column;
-    align-items: center; /* Centra la barra */
+    width: 100%;
+    max-width: 600px;
+    padding: 0 20px;
     margin: 0 auto;
+    display: flex;
+    justify-content: center;
 }
 
 #chat-input {
     width: 100%;
-    max-width: 600px; /* Limitem l'ample perquè no es vegi massa estirat */
-    padding: 22px 35px;
+    padding: 22px 30px;
     border-radius: 100px;
     border: 1px solid rgba(255, 255, 255, 0.2);
     background: rgba(255, 255, 255, 0.05);
     color: white;
     font-size: 1.1rem;
-    text-align: center; /* Centra el text de dins i el placeholder */
+    text-align: center; 
     outline: none;
-    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-    box-sizing: border-box;
     box-shadow: 0 10px 30px var(--ombra);
-    margin: 0 auto;
 }
 
-#chat-input::placeholder {
-    text-align: center;
-    color: rgba(255, 255, 255, 0.4);
-}
-
-#chat-input:focus {
-    background: rgba(255, 255, 255, 0.12);
-    border-color: rgba(255, 255, 255, 0.4);
-}
-
-/* RESPOSTA I CONTINGUT */
+/* El contenidor de resposta també ha d'estar centrat */
 #response-container {
-    width: 95%;
+    width: 90%;
     max-width: 850px;
     margin: 40px auto;
     background: rgba(255, 255, 255, 0.08);
     border-radius: 24px;
     padding: 40px;
-    border: 1px solid rgba(255, 255, 255, 0.1);
     backdrop-filter: blur(25px);
     display: none;
     flex-direction: column;
-    align-items: center; /* Centra contingut intern de la resposta */
-    box-sizing: border-box;
-    box-shadow: 0 20px 50px rgba(0,0,0,0.5);
-}
-
-.user-query {
-    width: 100%;
-    text-align: center; /* Centra la teva pregunta */
-    color: rgba(255, 255, 255, 0.5);
-    margin-bottom: 25px;
-    font-size: 0.9rem;
-    border-bottom: 1px solid rgba(255,255,255,0.1);
-    padding-bottom: 15px;
-}
-
-#chat-window {
-    width: 100%;
-    font-size: 1.15rem;
-    line-height: 1.8;
-    text-align: left; /* El text llarg és millor a l'esquerra per llegir */
-    margin-bottom: 30px;
-    color: var(--blanc-pur);
-}
-
-.vins-output {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-    gap: 25px;
-    width: 100%;
-    justify-content: center; /* Centra la quadrícula */
-    justify-items: center;
-}
-
-.vi-item {
-    background: rgba(255, 255, 255, 0.03);
-    border-radius: 20px;
-    padding: 20px;
-    width: 100%;
-    max-width: 220px;
-    text-align: center;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.vi-item img {
-    max-width: 100%;
-    height: 200px;
-    object-fit: contain;
-    margin-bottom: 15px;
+    align-items: center;
 }

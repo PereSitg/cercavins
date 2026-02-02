@@ -4,7 +4,16 @@ module.exports = async (req, res) => {
   if (req.method !== 'POST') return res.status(405).send('Mètode no permès');
 
   try {
-    const { pregunta } = req.body;
+    // 1. Rebem la pregunta i l'idioma detectat per l'ordinador
+    const { pregunta, idioma } = req.body;
+
+    // Configurem l'idioma de resposta
+    let llenguaResposta = "CATALÀ";
+    if (idioma) {
+        if (idioma.startsWith('fr')) llenguaResposta = "FRANCÈS (FRANÇAIS)";
+        else if (idioma.startsWith('es')) llenguaResposta = "CASTELLÀ (CASTELLANO)";
+        else if (idioma.startsWith('en')) llenguaResposta = "ANGLÈS (ENGLISH)";
+    }
 
     if (!admin.apps.length) {
       admin.initializeApp({
@@ -17,8 +26,8 @@ module.exports = async (req, res) => {
     }
     
     const db = admin.firestore();
-    // Agafem 20 vins per tenir varietat sense saturar
-    const snapshot = await db.collection('cercavins').limit(20).get(); 
+    // Pugem a 40 per tenir prou varietat de blancs/escumosos
+    const snapshot = await db.collection('cercavins').limit(40).get(); 
     let celler = [];
     
     snapshot.forEach(doc => { 
@@ -26,7 +35,7 @@ module.exports = async (req, res) => {
       celler.push({
         nom: d.nom,
         do: d.do,
-        imatge: d.imatge, // El camp de la teva foto
+        imatge: d.imatge,
         tipus: d.tipus
       });
     });
@@ -42,14 +51,20 @@ module.exports = async (req, res) => {
         messages: [
           { 
             role: 'system', 
-            content: `Ets el sommelier de Cercavins. 
-            NORMES:
-            1. Respon EN CATALÀ de forma amable.
-            2. NO MENCIONIS EL PREU.
-            3. Recomana 3 o 4 vins que encaixin amb la pregunta.
-            4. Molt important: Al final de tot, afegeix la cadena "|||" i després un JSON amb els objectes dels vins recomanats (nom, do, imatge).`
+            content: `Ets un Sommelier d'elit. La teva prioritat absoluta és la COHERÈNCIA del maridatge.
+            
+            NORMES DE MARIDATGE:
+            1. Si demanen marisc (percebes, gambes, etc.), selecciona NOMÉS blancs o escumosos. No recomanis MAI vins negres amb percebes.
+            2. És millor recomanar només 1 o 2 vins si són els únics que realment lliguen, que intentar omplir la llista amb vins que no toquen.
+            3. Explica breument per què el vi triat és ideal per al plat.
+
+            NORMES DE FORMAT:
+            1. Respon SEMPRE en idioma ${llenguaResposta}.
+            2. NO posis asteriscs (*) ni negretes (**) en els noms dels vins. Escriu-los tal qual estan al llistat.
+            3. NO mencionis preus.
+            4. Al final de tot, afegeix la cadena "|||" i després el JSON amb els vins recomanats.`
           },
-          { role: 'user', content: `Vins: ${JSON.stringify(celler)}. Pregunta: ${pregunta}` }
+          { role: 'user', content: `Celler disponible: ${JSON.stringify(celler)}. Pregunta del client: ${pregunta}` }
         ]
       })
     });

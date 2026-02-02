@@ -2,14 +2,15 @@
 <html lang="ca">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Sommelier Digital 2026</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🍷</text></svg>">
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;800&display=swap" rel="stylesheet">
     <style>
         :root { --ia-highlight: #d4af37; --blanc: #ffffff; }
         
-        * { box-sizing: border-box; margin: 0; padding: 0; } /* Reset fonamental per alinear */
+        /* 1. RESET I PREVENCIÓ DE DESPLAÇAMENT MÒBIL */
+        * { box-sizing: border-box; margin: 0; padding: 0; }
 
         body { 
             background: radial-gradient(circle at center, #800020 0%, #3a000e 100%); 
@@ -19,16 +20,17 @@
             display: flex; 
             flex-direction: column; 
             align-items: center; 
-            overflow-x: hidden;
+            overflow-x: hidden; /* Evita el ball lateral */
+            width: 100%;
         }
 
         header { text-align: center; padding: 60px 20px 30px; width: 100%; }
-        header h1 { font-size: 3.5rem; font-weight: 800; margin: 0; }
+        header h1 { font-size: clamp(2.2rem, 8vw, 3.5rem); font-weight: 800; margin: 0; }
         .ia-focus { color: var(--ia-highlight); }
 
-        /* AREA DE CERCA I RESPOSTA ALINEADES AL 100% */
+        /* 2. AREA DE CERCA RESPONSIVE */
         .search-area { 
-            width: 90%; 
+            width: 95%; 
             max-width: 700px; 
             margin: 20px auto 0 auto; 
             display: flex;
@@ -45,33 +47,76 @@
             color: white; 
             font-size: 1.1rem; 
             text-align: center; 
-            outline: none; 
+            outline: none;
+            -webkit-appearance: none; /* Estabilitat a iOS */
         }
 
+        /* 3. CONTENIDOR DE RESPOSTA (QUADRAT AMB LA CERCA) */
         #response-container { 
-            width: 100%; /* Ocupa el mateix que la search-area (700px) */
+            width: 100%; 
             margin-top: 30px; 
             background: rgba(255,255,255,0.07); 
             border-radius: 20px; 
-            padding: 35px; 
+            padding: 25px; 
             display: none; 
             box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+            backdrop-filter: blur(10px);
         }
 
         #chat-window { font-size: 1.1rem; line-height: 1.8; margin-bottom: 25px; text-align: left; }
         
-        /* CLASSE PER AL NÚMERO I NOM DEL VI */
+        /* 4. COLORS NOMS I NÚMEROS (GROC) */
         .nom-vi-destacat { color: var(--ia-highlight) !important; font-weight: 800; }
 
-        .vins-output { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; width: 100%; }
-        .vi-item { background: rgba(0,0,0,0.2); border-radius: 12px; padding: 15px; text-align: center; border: 1px solid rgba(255,255,255,0.1); }
-        .vi-item img { height: 180px; object-fit: contain; margin-bottom: 10px; }
-        .vi-nom { font-size: 0.9rem; font-weight: 800; color: var(--ia-highlight); }
+        /* 5. GALERIA D'IMATGES MILLORADA */
+        .vins-output { 
+            display: grid; 
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); 
+            gap: 15px; 
+            width: 100%; 
+        }
 
-        .btn-clear { display: block; margin: 30px auto 0; padding: 12px 30px; border-radius: 50px; border: 1px solid var(--ia-highlight); background: transparent; color: var(--ia-highlight); cursor: pointer; transition: all 0.3s; }
-        .btn-clear:hover { background: var(--ia-highlight); color: black; }
-        
+        .vi-item { 
+            background: rgba(0,0,0,0.2); 
+            border-radius: 12px; 
+            padding: 15px; 
+            text-align: center; 
+            border: 1px solid rgba(255,255,255,0.1);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .vi-item img { 
+            height: 180px; 
+            max-width: 100%;
+            object-fit: contain; 
+            margin-bottom: 10px; 
+            border-radius: 4px;
+        }
+
+        .vi-nom { font-size: 0.85rem; font-weight: 800; color: var(--ia-highlight); }
+
+        .btn-clear { 
+            display: block; 
+            margin: 30px auto 0; 
+            padding: 12px 30px; 
+            border-radius: 50px; 
+            border: 1px solid var(--ia-highlight); 
+            background: transparent; 
+            color: var(--ia-highlight); 
+            cursor: pointer; 
+            transition: all 0.3s; 
+        }
+
         footer { padding: 40px; opacity: 0.6; font-size: 0.8rem; text-align: center; width: 100%; }
+
+        /* AJUST ESPECÍFIC PER A MÒBIL */
+        @media (max-width: 480px) {
+            #response-container { padding: 15px; }
+            header h1 { font-size: 2.2rem; }
+            .vi-item img { height: 150px; }
+        }
     </style>
 </head>
 <body>
@@ -108,6 +153,7 @@
 
         const userLang = (navigator.language || 'ca').split('-')[0];
         const config = langConfigs[userLang] || langConfigs['ca'];
+        input.placeholder = (userLang === 'es') ? "¿Qué necesitas?" : (userLang === 'fr') ? "Que désirez-vous ?" : "Que necessites..?";
 
         btnBorrar.onclick = () => {
             container.style.display = "none";
@@ -115,21 +161,17 @@
             input.focus();
         };
 
-        // FUNCIÓ MAGICA PER PINTAR NÚMEROS I NOMS
         const formatarResposta = (text) => {
             let lineas = text.replace(/\*/g, '').split('\n');
-            
-            let htmlFinal = lineas.map(linea => {
+            return lineas.map(linea => {
                 let l = linea.trim();
-                // Si la línia comença per un número (1. Nom o 1- Nom)
+                // Si la línia comença per un número (1. o 1-)
                 if (/^\d+[\.\-]/.test(l)) {
-                    // Pintem el número i el nom fins que trobi dos punts o el final de la línia
+                    // Pinta de groc el número i el nom fins als dos punts
                     return l.replace(/^(\d+[\.\-]\s*)([^:]+)/, '<span class="nom-vi-destacat">$1$2</span>');
                 }
                 return l;
             }).join('<br>');
-            
-            return htmlFinal;
         };
 
         input.onkeypress = async (e) => {
@@ -154,21 +196,25 @@
                     if (textPur.includes('|||')) {
                         const parts = textPur.split('|||');
                         textPur = parts[0];
-                        try { vinsJSON = JSON.parse(parts[1].trim()); } catch(e) {}
+                        try { 
+                            vinsJSON = JSON.parse(parts[1].trim()); 
+                        } catch(e) { console.error("Error parseant JSON", e); }
                     }
 
-                    // Apliquem el format de colors (Número + Nom)
+                    // 1. Pintar text amb colors
                     windowBox.innerHTML = formatarResposta(textPur);
                     
-                    // Pintar galeria si hi ha JSON
-                    if (vinsJSON.length > 0) {
+                    // 2. Pintar galeria d'imatges
+                    if (vinsJSON && vinsJSON.length > 0) {
                         vinsJSON.forEach(v => {
-                            const img = v.imatge || "https://images.vivino.com/thumbs/default_label_600x600.png";
-                            galeria.innerHTML += `
-                                <div class="vi-item">
-                                    <img src="${img}" onerror="this.src='https://images.vivino.com/thumbs/default_label_600x600.png'">
-                                    <div class="vi-nom">${v.nom}</div>
-                                </div>`;
+                            const imgPath = v.imatge || "https://images.vivino.com/thumbs/default_label_600x600.png";
+                            const item = document.createElement('div');
+                            item.className = 'vi-item';
+                            item.innerHTML = `
+                                <img src="${imgPath}" onerror="this.src='https://images.vivino.com/thumbs/default_label_600x600.png'">
+                                <div class="vi-nom">${v.nom}</div>
+                            `;
+                            galeria.appendChild(item);
                         });
                     }
                 } catch (err) {

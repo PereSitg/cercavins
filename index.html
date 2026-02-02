@@ -108,35 +108,110 @@
             text-align: center;
         }
 
-        .user-pregunta-actual {
-            font-weight: 800;
-            margin-bottom: 20px;
-            opacity: 0.9;
-            font-size: 1.2rem;
-            border-bottom: 1px solid rgba(255,255,255,0.1);
-            padding-bottom: 10px;
-        }
-
-        /* GRID DE VINS */
-        .vins-grid {
+        /* ESTILS PER LES FOTOS SENSE DESTROSSAR RES */
+        .vins-output {
             display: flex;
             flex-wrap: wrap;
             justify-content: center;
-            gap: 20px;
-            margin-top: 30px;
+            gap: 15px;
+            margin-top: 20px;
+        }
+        .vi-item {
+            width: 120px;
+            text-align: center;
+            font-size: 0.8rem;
+        }
+        .vi-item img {
+            height: 140px;
+            width: auto;
+            margin-bottom: 8px;
+            filter: drop-shadow(0 5px 10px rgba(0,0,0,0.3));
         }
 
-        .vi-card {
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 15px;
-            padding: 15px;
-            width: 150px;
+        .pensant { font-style: italic; opacity: 0.5; }
+
+        footer {
+            padding: 60px 20px;
             text-align: center;
         }
 
-        .vi-card img {
-            max-width: 100%;
-            height: 150px;
-            object-fit: contain;
-            filter: drop-shadow(0 5px 15px rgba(0,0,0,0.3));
+        footer p {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            opacity: 0.3;
         }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>SommelierDig<span class="ia-focus">i</span>t<span class="ia-focus">a</span>l</h1>
+        <p>BY PERE BADIA I LORENZ</p>
+    </header>
+
+    <main class="search-area">
+        <input type="text" id="chat-input" placeholder="Que necessites..?" maxlength="500" autocomplete="off">
+        
+        <div id="response-container">
+            <div id="chat-window"></div>
+            <div id="vins-galeria" class="vins-output"></div>
+        </div>
+    </main>
+
+    <footer>
+        <p>&copy; 2026 &middot; TOTS ELS DRETS RESERVATS</p>
+    </footer>
+
+    <script type="module">
+        const input = document.getElementById('chat-input');
+        const container = document.getElementById('response-container');
+        const windowBox = document.getElementById('chat-window');
+        const galeria = document.getElementById('vins-galeria');
+
+        input.addEventListener('keypress', async (e) => {
+            if (e.key === 'Enter') {
+                const pregunta = input.value;
+                if (!pregunta) return;
+
+                container.style.display = "block";
+                windowBox.innerHTML = `<p class="pensant">El sommelier està consultant el celler...</p>`;
+                galeria.innerHTML = "";
+                // Guardem la pregunta un moment abans d'esborrar l'input
+                const preguntaGuardada = pregunta;
+                input.value = "";
+
+                try {
+                    const res = await fetch('/api/sommelier', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ pregunta: preguntaGuardada })
+                    });
+                    const data = await res.json();
+                    
+                    if (data.resposta.includes('|||')) {
+                        const parts = data.resposta.split('|||');
+                        // Mostrem el text del sommelier
+                        windowBox.innerHTML = `<p><strong>"${preguntaGuardada}"</strong></p><p>${parts[0].trim()}</p>`;
+                        
+                        // Mostrem les fotos
+                        const vins = JSON.parse(parts[1].trim());
+                        vins.forEach(vi => {
+                            galeria.innerHTML += `
+                                <div class="vi-item">
+                                    <img src="${vi.imatge}" alt="${vi.nom}">
+                                    <div><strong>${vi.nom}</strong></div>
+                                </div>
+                            `;
+                        });
+                    } else {
+                        windowBox.innerHTML = `<p><strong>"${preguntaGuardada}"</strong></p><p>${data.resposta}</p>`;
+                    }
+                } catch (err) {
+                    windowBox.innerHTML = `<p>El sommelier ha tingut un problema amb les bótes. Torna-ho a provar.</p>`;
+                }
+            }
+        });
+    </script>
+</body>
+</html>

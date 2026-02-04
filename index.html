@@ -131,7 +131,7 @@
 
     <header>
         <h1>Cercav<span class="ia-focus">i</span>ns</h1>
-        <p>El teu cercador de vins. Recorda que pot ser en català, castellà, anglès i francès.</p>
+        <p>El teu cercador de vins intel·ligent.</p>
     </header>
 
     <main class="search-area">
@@ -213,6 +213,7 @@
         };
 
         const formatarResposta = (text) => {
+            if (!text) return "";
             let lineas = text.replace(/\*/g, '').split('\n');
             return lineas.map(linea => {
                 let l = linea.trim();
@@ -228,54 +229,3 @@
             container.style.display = "block";
             windowBox.innerHTML = `<i>${texts.loading}</i>`;
             galeria.innerHTML = "";
-
-            try {
-                const res = await fetch('/api/sommelier', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ pregunta, idioma: currentLang })
-                });
-                
-                const data = await res.json();
-                
-                if (res.ok) {
-                    input.value = "";
-                    let textPur = data.resposta;
-                    let vinsJSON = [];
-
-                    if (textPur.includes('|||')) {
-                        const parts = textPur.split('|||');
-                        textPur = parts[0];
-                        try { vinsJSON = JSON.parse(parts[1].trim()); } catch(e) {}
-                    }
-
-                    windowBox.innerHTML = formatarResposta(textPur);
-                    
-                    if (vinsJSON && vinsJSON.length > 0) {
-                        vinsJSON.forEach(v => {
-                            const imgPath = v.imatge || "https://images.vivino.com/thumbs/default_label_600x600.png";
-                            const item = document.createElement('div');
-                            item.className = 'vi-item';
-                            item.innerHTML = `
-                                <img src="${imgPath}" onerror="this.src='https://images.vivino.com/thumbs/default_label_600x600.png'">
-                                <div class="vi-nom">${v.nom}</div>
-                            `;
-                            galeria.appendChild(item);
-                        });
-                    }
-                } else {
-                    windowBox.innerHTML = `<span class="error-msg">⚠️ ${data.resposta}</span>`;
-                }
-            } catch (err) {
-                windowBox.innerHTML = `<span class="error-msg">⚠️ Error de connexió amb el servidor.</span>`;
-            }
-        };
-
-        input.onkeypress = (e) => {
-            if (e.key === 'Enter' && input.value.trim() !== "") {
-                processarCerca(input.value);
-            }
-        };
-    </script>
-</body>
-</html>

@@ -6,7 +6,7 @@ module.exports = async (req, res) => {
   try {
     const { pregunta, idioma } = req.body;
 
-    // 1. GESTIÓ D'IDIOMES (Ara inclou Anglès)
+    // 1. GESTIÓ D'IDIOMES
     let llenguaResposta = "CATALÀ";
     let termeUva = "raïm"; 
     
@@ -35,7 +35,6 @@ module.exports = async (req, res) => {
     }
     
     const db = admin.firestore();
-    // Augmentem una mica el límit perquè la IA tingui on triar
     const snapshot = await db.collection('cercavins').limit(40).get(); 
     let celler = [];
     
@@ -46,11 +45,10 @@ module.exports = async (req, res) => {
         do: d.do,
         imatge: d.imatge, 
         tipus: d.tipus
-        // No enviem el preu a la IA per estalviar tokens i complir la teva norma
       });
     });
 
-    // 3. CONSULTA A GROQ (Model 70B)
+    // 3. CONSULTA A GROQ (Model 8B per a proves, més quota disponible)
     const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -58,27 +56,34 @@ module.exports = async (req, res) => {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        model: 'llama-3.3-70b-versatile', 
+        model: 'llama-3.1-8b-instant', 
         messages: [
           { 
             role: 'system', 
             content: `Ets el sommelier expert de Cercavins. 
             NORMES DE RESPOSTA:
             1. Respon exclusivament en ${llenguaResposta}.
-            2. Si l'idioma és ${llenguaResposta}, no usis MAI paraules en altres idiomes (Exemple: si és anglès, usa "${termeUva}").
-            3. Sigues elegant i professional. Recomana 3 o 4 vins del celler proporcionat que millor maridin amb la pregunta.
-            4. Per cada vi, explica la varietat de ${termeUva} (usa la teva memòria si no està al JSON) i per què és ideal.
+            2. Si l'idioma és ${llenguaResposta}, no usis MAI paraules en altres idiomes.
+            3. Sigues elegant. Recomana 3 o 4 vins del celler proporcionat.
+            4. Per cada vi, explica la varietat de ${termeUva} i per què és ideal.
             5. PROHIBIT MENCIONAR PREUS.
             6. Estructura: Text de la recomanació + "|||" + JSON formatat amb [ {nom, do, imatge} ].`
           },
-          { role: 'user', content: `Celler disponible: ${JSON.stringify(celler)}. Pregunta de l'usuari: ${pregunta}` }
+          { role: 'user', content: `Celler disponible: ${JSON.stringify(celler)}. Pregunta: ${pregunta}` }
         ],
-        temperature: 0.7 // Un pèl de creativitat per fer-ho més natural
+        temperature: 0.7
       })
     });
 
     const data = await response.json();
     
+    if (data.error) {
+        // Si Groq ens dona error de quota o similar
+        return res.status(data.error.code === 'rate_limit_exceeded' ? 429 : 500).json({ 
+            resposta: `Error de la IA: ${data.error.message}` 
+        });
+    }
+
     if (data.choices && data.choices[0]) {
         res.status(200).json({ resposta: data.choices[0].message.content });
     } else {
@@ -87,6 +92,6 @@ module.exports = async (req, res) => {
 
   } catch (error) {
     console.error("Sommelier Error:", error);
-    res.status(500).json({ resposta: "Ho sento, he tingut un problema amb el celler. Torna a provar-ho en un moment. ||| []" });
+    res.status(500).json({ resposta: "Ho sento, el sommelier està descansant. Torna a provar-ho en un moment. ||| []" });
   }
 };

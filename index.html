@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Cercavins · Sommelier Digital</title>
+    <title>Sommelier Digital</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🍷</text></svg>">
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;800&display=swap" rel="stylesheet">
     <style>
@@ -24,15 +24,6 @@
 
         header { text-align: center; padding: 60px 20px 30px; width: 100%; }
         header h1 { font-size: clamp(2.2rem, 8vw, 3.5rem); font-weight: 800; margin: 0; }
-        header p { 
-            margin-top: 15px; 
-            font-size: 1.1rem; 
-            opacity: 0.9; 
-            max-width: 600px; 
-            margin-left: auto; 
-            margin-right: auto;
-            line-height: 1.4;
-        }
         .ia-focus { color: var(--ia-highlight); }
 
         .search-area { 
@@ -42,19 +33,11 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            position: relative;
-        }
-
-        .input-wrapper {
-            width: 100%;
-            position: relative;
-            display: flex;
-            align-items: center;
         }
 
         #chat-input { 
             width: 100%; 
-            padding: 20px 60px 20px 30px; 
+            padding: 20px 30px; 
             border-radius: 50px; 
             border: 1px solid rgba(255,255,255,0.2); 
             background: rgba(255,255,255,0.05); 
@@ -63,33 +46,6 @@
             text-align: center; 
             outline: none;
             -webkit-appearance: none;
-        }
-
-        #btn-veu {
-            position: absolute;
-            right: 15px;
-            background: none;
-            border: none;
-            font-size: 1.5rem;
-            cursor: pointer;
-            transition: transform 0.2s;
-            padding: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        #btn-veu.listening {
-            transform: scale(1.3);
-            filter: drop-shadow(0 0 8px var(--ia-highlight));
-            animation: pulse-gold 1.5s infinite;
-            border-radius: 50%;
-        }
-
-        @keyframes pulse-gold {
-            0% { box-shadow: 0 0 0 0 rgba(212, 175, 55, 0.4); }
-            70% { box-shadow: 0 0 0 15px rgba(212, 175, 55, 0); }
-            100% { box-shadow: 0 0 0 0 rgba(212, 175, 55, 0); }
         }
 
         #response-container { 
@@ -105,7 +61,6 @@
 
         #chat-window { font-size: 1.1rem; line-height: 1.8; margin-bottom: 25px; text-align: left; }
         .nom-vi-destacat { color: var(--ia-highlight) !important; font-weight: 800; }
-        .error-msg { color: #ff8585; font-style: italic; }
 
         .vins-output { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 15px; width: 100%; }
         .vi-item { background: rgba(0,0,0,0.2); border-radius: 12px; padding: 15px; text-align: center; border: 1px solid rgba(255,255,255,0.1); }
@@ -118,7 +73,7 @@
             cursor: pointer; transition: 0.3s; 
         }
 
-        footer { padding: 40px; opacity: 0.7; font-size: 0.9rem; text-align: center; width: 100%; margin-top: auto; }
+        footer { padding: 40px; opacity: 0.6; font-size: 0.8rem; text-align: center; width: 100%; margin-top: auto; }
 
         @media (max-width: 480px) {
             #response-container { padding: 15px; }
@@ -130,15 +85,12 @@
 <body>
 
     <header>
-        <h1>Cercav<span class="ia-focus">i</span>ns</h1>
-        <p>El teu cercador de vins intel·ligent.</p>
+        <h1>Sommel<span class="ia-focus">i</span>erDig<span class="ia-focus">i</span>t<span class="ia-focus">a</span>l</h1>
+        <p style="margin-top: 10px; opacity: 0.9;">El teu cercador de vins intel·ligent</p>
     </header>
 
     <main class="search-area">
-        <div class="input-wrapper">
-            <input type="text" id="chat-input" placeholder="" autocomplete="off">
-            <button id="btn-veu" title="Cerca per veu">🎙️</button>
-        </div>
+        <input type="text" id="chat-input" placeholder="..." autocomplete="off">
         
         <div id="response-container">
             <div id="chat-window"></div>
@@ -147,9 +99,7 @@
         </div>
     </main>
 
-    <footer>
-        <p id="footer-text"></p>
-    </footer>
+    <footer><p id="footer-text"></p></footer>
 
     <script>
         const input = document.getElementById('chat-input');
@@ -158,12 +108,11 @@
         const galeria = document.getElementById('vins-galeria');
         const btnBorrar = document.getElementById('btn-borrar');
         const footerEle = document.getElementById('footer-text');
-        const btnVeu = document.getElementById('btn-veu');
 
-        // Textos actualitzats amb "Què necessites?"
+        // Configuració d'idiomes amb el footer i el "Què necessites..?" corregits
         const i18n = {
             'ca': { 
-                placeholder: "Què necessites?", 
+                placeholder: "Què necessites..?", 
                 loading: "Consultant el celler...", 
                 btn: "Nova consulta", 
                 footer: "Pere Badia i Lorenz © 2026 · Tots els drets reservats" 
@@ -175,7 +124,7 @@
                 footer: "Pere Badia i Lorenz © 2026 · Todos los derechos reservados" 
             },
             'fr': { 
-                placeholder: "Qu'est-ce qu'il vous faut ?", 
+                placeholder: "Que désirez-vous ?", 
                 loading: "Consultation de la cave...", 
                 btn: "Nouvelle recherche", 
                 footer: "Pere Badia i Lorenz © 2026 · Tous droits réservés" 
@@ -188,44 +137,13 @@
             }
         };
 
-        const getBrowserLang = () => {
-            const lang = (navigator.language || 'ca').split('-')[0];
-            return i18n[lang] ? lang : 'ca';
-        };
+        const userLang = (navigator.language || 'ca').split('-')[0];
+        const texts = i18n[userLang] || i18n['ca'];
 
-        let currentLang = getBrowserLang();
-        let texts = i18n[currentLang];
-
-        const aplicarTextos = () => {
-            input.placeholder = texts.placeholder;
-            btnBorrar.innerText = texts.btn;
-            footerEle.innerText = texts.footer;
-        };
-        aplicarTextos();
-
-        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        if (SpeechRecognition) {
-            const recognition = new SpeechRecognition();
-            const langMap = { 'ca': 'ca-ES', 'es': 'es-ES', 'fr': 'fr-FR', 'en': 'en-US' };
-            
-            btnVeu.onclick = () => {
-                recognition.lang = langMap[currentLang] || 'ca-ES';
-                recognition.start();
-                btnVeu.classList.add('listening');
-            };
-
-            recognition.onresult = (event) => {
-                const transcript = event.results[0][0].transcript;
-                input.value = transcript;
-                btnVeu.classList.remove('listening');
-                processarCerca(transcript);
-            };
-
-            recognition.onend = () => btnVeu.classList.remove('listening');
-            recognition.onerror = () => btnVeu.classList.remove('listening');
-        } else {
-            btnVeu.style.display = 'none';
-        }
+        // Apliquem els textos immediatament
+        input.placeholder = texts.placeholder;
+        btnBorrar.innerText = texts.btn;
+        footerEle.innerText = texts.footer;
 
         btnBorrar.onclick = () => {
             container.style.display = "none";
@@ -245,30 +163,28 @@
             }).join('<br>');
         };
 
-        const processarCerca = async (pregunta) => {
-            if (!pregunta) return;
-            container.style.display = "block";
-            windowBox.innerHTML = `<i>${texts.loading}</i>`;
-            galeria.innerHTML = "";
+        input.onkeypress = async (e) => {
+            if (e.key === 'Enter' && input.value.trim() !== "") {
+                const pregunta = input.value;
+                container.style.display = "block";
+                windowBox.innerHTML = `<i>${texts.loading}</i>`;
+                galeria.innerHTML = "";
+                input.value = "";
 
-            try {
-                const res = await fetch('/api/sommelier', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ pregunta, idioma: currentLang })
-                });
-                
-                const data = await res.json();
-                
-                if (res.ok) {
-                    input.value = "";
+                try {
+                    const res = await fetch('/api/sommelier', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ pregunta, idioma: userLang })
+                    });
+                    const data = await res.json();
                     let textPur = data.resposta || "";
                     let vinsJSON = [];
 
                     if (textPur.includes('|||')) {
                         const parts = textPur.split('|||');
                         textPur = parts[0];
-                        try { vinsJSON = JSON.parse(parts[1].trim()); } catch(e) { vinsJSON = []; }
+                        try { vinsJSON = JSON.parse(parts[1].trim()); } catch(e) {}
                     }
 
                     windowBox.innerHTML = formatarResposta(textPur);
@@ -285,17 +201,9 @@
                             galeria.appendChild(item);
                         });
                     }
-                } else {
-                    windowBox.innerHTML = `<span class="error-msg">⚠️ ${data.resposta || "Error"}</span>`;
+                } catch (err) {
+                    windowBox.innerHTML = "Error de connexió.";
                 }
-            } catch (err) {
-                windowBox.innerHTML = `<span class="error-msg">⚠️ Error de connexió amb el servidor.</span>`;
-            }
-        };
-
-        input.onkeypress = (e) => {
-            if (e.key === 'Enter' && input.value.trim() !== "") {
-                processarCerca(input.value);
             }
         };
     </script>

@@ -6,7 +6,6 @@ module.exports = async (req, res) => {
   try {
     const { pregunta, idioma } = req.body;
 
-    // 1. GESTIÓ D'IDIOMES
     let llenguaResposta = "CATALÀ";
     let termeUva = "raïm"; 
     
@@ -23,7 +22,6 @@ module.exports = async (req, res) => {
         }
     }
 
-    // 2. INICIALITZACIÓ FIREBASE
     if (!admin.apps.length) {
       admin.initializeApp({
         credential: admin.credential.cert({
@@ -48,7 +46,6 @@ module.exports = async (req, res) => {
       });
     });
 
-    // 3. CONSULTA A GROQ (Model 8B per a proves, més quota disponible)
     const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -61,37 +58,33 @@ module.exports = async (req, res) => {
           { 
             role: 'system', 
             content: `Ets el sommelier expert de Cercavins. 
-            NORMES DE RESPOSTA:
-            1. Respon exclusivament en ${llenguaResposta}.
-            2. Si l'idioma és ${llenguaResposta}, no usis MAI paraules en altres idiomes.
-            3. Sigues elegant. Recomana 3 o 4 vins del celler proporcionat.
-            4. Per cada vi, explica la varietat de ${termeUva} i per què és ideal.
-            5. PROHIBIT MENCIONAR PREUS.
-            6. Estructura: Text de la recomanació + "|||" + JSON formatat amb [ {nom, do, imatge} ].`
+            IMPORTANT: Respon SEMPRE en ${llenguaResposta}.
+            
+            INSTRUCCIÓ OBLIGATÒRIA:
+            1. Recomana 3 o 4 vins del celler.
+            2. Explica la varietat de ${termeUva} de cada un.
+            3. Al final de tot el text, afegeix SEMPRE el separador "|||" seguit del JSON dels vins triats (nom, do, imatge).
+            
+            Exemple de format:
+            Text de la recomanació...
+            |||
+            [{"nom": "Vi 1", "do": "DO", "imatge": "url"}]`
           },
-          { role: 'user', content: `Celler disponible: ${JSON.stringify(celler)}. Pregunta: ${pregunta}` }
+          { role: 'user', content: `Celler: ${JSON.stringify(celler)}. Pregunta: ${pregunta}` }
         ],
-        temperature: 0.7
+        temperature: 0.3 // Baixem la temperatura perquè sigui més obedient amb el format
       })
     });
 
     const data = await response.json();
     
-    if (data.error) {
-        // Si Groq ens dona error de quota o similar
-        return res.status(data.error.code === 'rate_limit_exceeded' ? 429 : 500).json({ 
-            resposta: `Error de la IA: ${data.error.message}` 
-        });
-    }
-
     if (data.choices && data.choices[0]) {
         res.status(200).json({ resposta: data.choices[0].message.content });
     } else {
-        throw new Error("Resposta buida de la IA");
+        throw new Error("Resposta buida");
     }
 
   } catch (error) {
-    console.error("Sommelier Error:", error);
-    res.status(500).json({ resposta: "Ho sento, el sommelier està descansant. Torna a provar-ho en un moment. ||| []" });
+    res.status(500).json({ resposta: "Error de connexió. ||| []" });
   }
 };

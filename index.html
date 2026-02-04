@@ -33,11 +33,19 @@
             display: flex;
             flex-direction: column;
             align-items: center;
+            position: relative;
+        }
+
+        .input-wrapper {
+            width: 100%;
+            position: relative;
+            display: flex;
+            align-items: center;
         }
 
         #chat-input { 
             width: 100%; 
-            padding: 20px 30px; 
+            padding: 20px 60px 20px 30px; 
             border-radius: 50px; 
             border: 1px solid rgba(255,255,255,0.2); 
             background: rgba(255,255,255,0.05); 
@@ -46,6 +54,33 @@
             text-align: center; 
             outline: none;
             -webkit-appearance: none;
+        }
+
+        #btn-veu {
+            position: absolute;
+            right: 15px;
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            transition: transform 0.2s;
+            padding: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #btn-veu.listening {
+            transform: scale(1.3);
+            filter: drop-shadow(0 0 8px var(--ia-highlight));
+            animation: pulse-gold 1.5s infinite;
+            border-radius: 50%;
+        }
+
+        @keyframes pulse-gold {
+            0% { box-shadow: 0 0 0 0 rgba(212, 175, 55, 0.4); }
+            70% { box-shadow: 0 0 0 15px rgba(212, 175, 55, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(212, 175, 55, 0); }
         }
 
         #response-container { 
@@ -90,7 +125,10 @@
     </header>
 
     <main class="search-area">
-        <input type="text" id="chat-input" placeholder="..." autocomplete="off">
+        <div class="input-wrapper">
+            <input type="text" id="chat-input" placeholder="..." autocomplete="off">
+            <button id="btn-veu" title="Cerca per veu">🎙️</button>
+        </div>
         
         <div id="response-container">
             <div id="chat-window"></div>
@@ -108,8 +146,8 @@
         const galeria = document.getElementById('vins-galeria');
         const btnBorrar = document.getElementById('btn-borrar');
         const footerEle = document.getElementById('footer-text');
+        const btnVeu = document.getElementById('btn-veu');
 
-        // Configuració d'idiomes amb el footer i el "Què necessites..?" corregits
         const i18n = {
             'ca': { 
                 placeholder: "Què necessites..?", 
@@ -140,10 +178,34 @@
         const userLang = (navigator.language || 'ca').split('-')[0];
         const texts = i18n[userLang] || i18n['ca'];
 
-        // Apliquem els textos immediatament
         input.placeholder = texts.placeholder;
         btnBorrar.innerText = texts.btn;
         footerEle.innerText = texts.footer;
+
+        // Lògica del micròfon (Speech Recognition)
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (SpeechRecognition) {
+            const recognition = new SpeechRecognition();
+            const langMap = { 'ca': 'ca-ES', 'es': 'es-ES', 'fr': 'fr-FR', 'en': 'en-US' };
+            
+            btnVeu.onclick = () => {
+                recognition.lang = langMap[userLang] || 'ca-ES';
+                recognition.start();
+                btnVeu.classList.add('listening');
+            };
+
+            recognition.onresult = (event) => {
+                const transcript = event.results[0][0].transcript;
+                input.value = transcript;
+                btnVeu.classList.remove('listening');
+                processarCerca(transcript);
+            };
+
+            recognition.onend = () => btnVeu.classList.remove('listening');
+            recognition.onerror = () => btnVeu.classList.remove('listening');
+        } else {
+            btnVeu.style.display = 'none';
+        }
 
         btnBorrar.onclick = () => {
             container.style.display = "none";
@@ -163,47 +225,50 @@
             }).join('<br>');
         };
 
-        input.onkeypress = async (e) => {
-            if (e.key === 'Enter' && input.value.trim() !== "") {
-                const pregunta = input.value;
-                container.style.display = "block";
-                windowBox.innerHTML = `<i>${texts.loading}</i>`;
-                galeria.innerHTML = "";
-                input.value = "";
+        const processarCerca = async (pregunta) => {
+            if (!pregunta) return;
+            container.style.display = "block";
+            windowBox.innerHTML = `<i>${texts.loading}</i>`;
+            galeria.innerHTML = "";
 
-                try {
-                    const res = await fetch('/api/sommelier', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ pregunta, idioma: userLang })
-                    });
-                    const data = await res.json();
-                    let textPur = data.resposta || "";
-                    let vinsJSON = [];
+            try {
+                const res = await fetch('/api/sommelier', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ pregunta, idioma: userLang })
+                });
+                const data = await res.json();
+                let textPur = data.resposta || "";
+                let vinsJSON = [];
 
-                    if (textPur.includes('|||')) {
-                        const parts = textPur.split('|||');
-                        textPur = parts[0];
-                        try { vinsJSON = JSON.parse(parts[1].trim()); } catch(e) {}
-                    }
-
-                    windowBox.innerHTML = formatarResposta(textPur);
-                    
-                    if (vinsJSON && vinsJSON.length > 0) {
-                        vinsJSON.forEach(v => {
-                            const imgPath = v.imatge || "https://images.vivino.com/thumbs/default_label_600x600.png";
-                            const item = document.createElement('div');
-                            item.className = 'vi-item';
-                            item.innerHTML = `
-                                <img src="${imgPath}" onerror="this.src='https://images.vivino.com/thumbs/default_label_600x600.png'">
-                                <div class="vi-nom">${v.nom}</div>
-                            `;
-                            galeria.appendChild(item);
-                        });
-                    }
-                } catch (err) {
-                    windowBox.innerHTML = "Error de connexió.";
+                if (textPur.includes('|||')) {
+                    const parts = textPur.split('|||');
+                    textPur = parts[0];
+                    try { vinsJSON = JSON.parse(parts[1].trim()); } catch(e) {}
                 }
+
+                windowBox.innerHTML = formatarResposta(textPur);
+                
+                if (vinsJSON && vinsJSON.length > 0) {
+                    vinsJSON.forEach(v => {
+                        const imgPath = v.imatge || "https://images.vivino.com/thumbs/default_label_600x600.png";
+                        const item = document.createElement('div');
+                        item.className = 'vi-item';
+                        item.innerHTML = `
+                            <img src="${imgPath}" onerror="this.src='https://images.vivino.com/thumbs/default_label_600x600.png'">
+                            <div class="vi-nom">${v.nom}</div>
+                        `;
+                        galeria.appendChild(item);
+                    });
+                }
+            } catch (err) {
+                windowBox.innerHTML = "Error de connexió.";
+            }
+        };
+
+        input.onkeypress = (e) => {
+            if (e.key === 'Enter' && input.value.trim() !== "") {
+                processarCerca(input.value);
             }
         };
     </script>

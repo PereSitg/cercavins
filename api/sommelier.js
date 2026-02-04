@@ -6,21 +6,14 @@ module.exports = async (req, res) => {
   try {
     const { pregunta, idioma } = req.body;
 
-    let llenguaResposta = "CATALÀ";
-    let termeUva = "raïm"; 
-    
-    if (idioma) {
-        if (idioma.startsWith('es')) {
-            llenguaResposta = "CASTELLÀ (ESPAÑOL)";
-            termeUva = "uva";
-        } else if (idioma.startsWith('fr')) {
-            llenguaResposta = "FRANCÈS (FRANÇAIS)";
-            termeUva = "raisin";
-        } else if (idioma.startsWith('en')) {
-            llenguaResposta = "ANGLÈS (ENGLISH)";
-            termeUva = "grape";
-        }
-    }
+    // 1. Configuració d'idioma simplificada
+    const langMap = {
+      'ca': { res: 'CATALÀ', uva: 'raïm' },
+      'es': { res: 'CASTELLÀ (ESPAÑOL)', uva: 'uva' },
+      'en': { res: 'ANGLÈS (ENGLISH)', uva: 'grape' },
+      'fr': { res: 'FRANCÈS (FRANÇAIS)', uva: 'raisin' }
+    };
+    const config = langMap[idioma?.slice(0,2)] || langMap['ca'];
 
     if (!admin.apps.length) {
       admin.initializeApp({
@@ -33,28 +26,26 @@ module.exports = async (req, res) => {
     }
     
     const db = admin.firestore();
-    
-    // FILTRE DE SEGURETAT: Si l'usuari pregunta per un vi concret, el busquem SI O SI.
-    const paraules = pregunta.split(' ').filter(p => p.length > 2);
     let celler = [];
-    
-    // Intentem buscar el vi pel nom a Firebase
+
+    // 2. Cerca ultra-directa per paraula clau (ex: "Cune" o "Capellanes")
+    const paraules = pregunta.split(' ').filter(p => p.length > 3);
     if (paraules.length > 0) {
-        const busqueda = paraules[0].charAt(0).toUpperCase() + paraules[0].slice(1).toLowerCase();
+        const keyword = paraules[0].charAt(0).toUpperCase() + paraules[0].slice(1).toLowerCase();
         const snap = await db.collection('cercavins')
-            .where('nom', '>=', busqueda)
-            .where('nom', '<=', busqueda + '\uf8ff')
+            .where('nom', '>=', keyword)
+            .where('nom', '<=', keyword + '\uf8ff')
             .limit(10).get();
-        
         snap.forEach(doc => celler.push(doc.data()));
     }
 
-    // Si no trobem res amb el nom, portem els 40 primers per tenir varietat
+    // Si no hi ha resultats específics, portem un pool fix de seguretat
     if (celler.length === 0) {
-        const snapGeneral = await db.collection('cercavins').limit(40).get();
-        snapGeneral.forEach(doc => celler.push(doc.data()));
+        const snapGen = await db.collection('cercavins').limit(20).get();
+        snapGen.forEach(doc => celler.push(doc.data()));
     }
 
+    // 3. Prompt de "Xoc": Instruccions seques per evitar bucles
     const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -66,25 +57,32 @@ module.exports = async (req, res) => {
         messages: [
           { 
             role: 'system', 
-            content: `Ets el sommelier de Cercavins. 
-            NORMES ABSOLUTES:
-            1. Respon SEMPRE en ${llenguaResposta}.
-            2. NOMÉS pots recomanar vins que apareguin al fitxer JSON que t'envio. ESTÀ PROHIBIT inventar-se vins (com Borsao).
-            3. Si el vi NO és a la llista, digues que no el tens i recomana'n un de la llista que s'hi assembli per D.O. o tipus.
-            4. Per a cada vi: nom, D.O., varietat de ${termeUva} i maridatge.
-            5. EL FINAL DE LA RESPOSTA HA DE SER: "|||" seguit del JSON array [ {"nom": "...", "do": "...", "imatge": "..."} ].
-            6. NO escriguis res de text després del separador "|||".`
+            content: `Ets el sommelier de Cercavins.
+            - Respon en ${config.res}.
+            - NOMÉS recomana vins de la llista JSON.
+            - Si el vi demanat no hi és, digues: "No el tenim en estoc ara mateix" i recomana 2 alternatives de la llista.
+            - PROHIBIT REPETIR FRASES. Sigues breu.
+            - FORMAT: [Text Recomanació]|||[JSON Array]`
           },
-          { role: 'user', content: `Llista de vins reals: ${JSON.stringify(celler)}. Pregunta: ${pregunta}` }
+          { role: 'user', content: `VINS: ${JSON.stringify(celler)}. PREGUNTA: ${pregunta}` }
         ],
-        temperature: 0 // Creativitat zero per evitar invencions
+        temperature: 0, // Bloqueja la "bogeria" i les repeticions
+        max_tokens: 500
       })
     });
 
     const data = await response.json();
-    res.status(200).json({ resposta: data.choices[0].message.content });
+    let finalContent = data.choices[0].message.content;
+
+    // Neteja extra per si la IA encara vol escriure després del JSON
+    if (finalContent.includes('|||')) {
+        const parts = finalContent.split('|||');
+        finalContent = parts[0] + '|||' + parts[1];
+    }
+
+    res.status(200).json({ resposta: finalContent });
 
   } catch (error) {
-    res.status(500).json({ resposta: "Error: " + error.message + " ||| []" });
+    res.status(500).json({ resposta: "Error tècnic ||| []" });
   }
 };

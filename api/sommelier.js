@@ -33,25 +33,27 @@ module.exports = async (req, res) => {
     }
     
     const db = admin.firestore();
-    const paraulesClau = pregunta.split(' ').filter(p => p.length > 2);
-    let query = db.collection('cercavins');
-    let snapshot;
-
-    // Millorem la cerca: si hi ha paraules clau, busquem per prefix
-    if (paraulesClau.length > 0) {
-        const cerca = paraulesClau[0].charAt(0).toUpperCase() + paraulesClau[0].slice(1).toLowerCase();
-        snapshot = await query.where('nom', '>=', cerca).where('nom', '<=', cerca + '\uf8ff').limit(15).get();
-    }
-
-    if (!snapshot || snapshot.empty) {
-        snapshot = await query.limit(20).get();
-    }
-
+    
+    // FILTRE DE SEGURETAT: Si l'usuari pregunta per un vi concret, el busquem SI O SI.
+    const paraules = pregunta.split(' ').filter(p => p.length > 2);
     let celler = [];
-    snapshot.forEach(doc => { 
-      const d = doc.data();
-      celler.push({ nom: d.nom, do: d.do, imatge: d.imatge, tipus: d.tipus, raim: d.raim || "Varietat típica de la zona" });
-    });
+    
+    // Intentem buscar el vi pel nom a Firebase
+    if (paraules.length > 0) {
+        const busqueda = paraules[0].charAt(0).toUpperCase() + paraules[0].slice(1).toLowerCase();
+        const snap = await db.collection('cercavins')
+            .where('nom', '>=', busqueda)
+            .where('nom', '<=', busqueda + '\uf8ff')
+            .limit(10).get();
+        
+        snap.forEach(doc => celler.push(doc.data()));
+    }
+
+    // Si no trobem res amb el nom, portem els 40 primers per tenir varietat
+    if (celler.length === 0) {
+        const snapGeneral = await db.collection('cercavins').limit(40).get();
+        snapGeneral.forEach(doc => celler.push(doc.data()));
+    }
 
     const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
@@ -64,16 +66,18 @@ module.exports = async (req, res) => {
         messages: [
           { 
             role: 'system', 
-            content: `Ets el sommelier expert de Cercavins. 
-            INSTRUCCIONS DE RESPOSTA:
-            1. Respon en ${llenguaResposta}.
-            2. Per a cada vi recomanat: Escriu el nom, la D.O., el tipus de ${termeUva} i una nota de maridatge detallada.
-            3. És OBLIGATORI que la resposta acabi amb "|||" i un JSON array amb els objectes dels vins triats (nom, do, imatge).
-            4. Si el vi demanat és al celler, dóna tota la seva informació.`
+            content: `Ets el sommelier de Cercavins. 
+            NORMES ABSOLUTES:
+            1. Respon SEMPRE en ${llenguaResposta}.
+            2. NOMÉS pots recomanar vins que apareguin al fitxer JSON que t'envio. ESTÀ PROHIBIT inventar-se vins (com Borsao).
+            3. Si el vi NO és a la llista, digues que no el tens i recomana'n un de la llista que s'hi assembli per D.O. o tipus.
+            4. Per a cada vi: nom, D.O., varietat de ${termeUva} i maridatge.
+            5. EL FINAL DE LA RESPOSTA HA DE SER: "|||" seguit del JSON array [ {"nom": "...", "do": "...", "imatge": "..."} ].
+            6. NO escriguis res de text després del separador "|||".`
           },
-          { role: 'user', content: `Vins disponibles: ${JSON.stringify(celler)}. Pregunta de l'usuari: ${pregunta}` }
+          { role: 'user', content: `Llista de vins reals: ${JSON.stringify(celler)}. Pregunta: ${pregunta}` }
         ],
-        temperature: 0.1
+        temperature: 0 // Creativitat zero per evitar invencions
       })
     });
 
@@ -81,6 +85,6 @@ module.exports = async (req, res) => {
     res.status(200).json({ resposta: data.choices[0].message.content });
 
   } catch (error) {
-    res.status(500).json({ resposta: "Error: " + error.message });
+    res.status(500).json({ resposta: "Error: " + error.message + " ||| []" });
   }
 };

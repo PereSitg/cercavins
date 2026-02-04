@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Sommelier Digital 2026</title>
+    <title>Cercavins · Sommelier Digital</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🍷</text></svg>">
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;800&display=swap" rel="stylesheet">
     <style>
@@ -24,6 +24,15 @@
 
         header { text-align: center; padding: 60px 20px 30px; width: 100%; }
         header h1 { font-size: clamp(2.2rem, 8vw, 3.5rem); font-weight: 800; margin: 0; }
+        header p { 
+            margin-top: 15px; 
+            font-size: 1.1rem; 
+            opacity: 0.9; 
+            max-width: 600px; 
+            margin-left: auto; 
+            margin-right: auto;
+            line-height: 1.4;
+        }
         .ia-focus { color: var(--ia-highlight); }
 
         .search-area { 
@@ -69,18 +78,18 @@
             align-items: center;
             justify-content: center;
         }
-        
-        @keyframes pulse-gold {
-            0% { box-shadow: 0 0 0 0 rgba(212, 175, 55, 0.4); }
-            70% { box-shadow: 0 0 0 15px rgba(212, 175, 55, 0); }
-            100% { box-shadow: 0 0 0 0 rgba(212, 175, 55, 0); }
-        }
 
         #btn-veu.listening {
             transform: scale(1.3);
             filter: drop-shadow(0 0 8px var(--ia-highlight));
             animation: pulse-gold 1.5s infinite;
             border-radius: 50%;
+        }
+
+        @keyframes pulse-gold {
+            0% { box-shadow: 0 0 0 0 rgba(212, 175, 55, 0.4); }
+            70% { box-shadow: 0 0 0 15px rgba(212, 175, 55, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(212, 175, 55, 0); }
         }
 
         #response-container { 
@@ -109,7 +118,7 @@
             cursor: pointer; transition: 0.3s; 
         }
 
-        footer { padding: 40px; opacity: 0.6; font-size: 0.8rem; text-align: center; width: 100%; margin-top: auto; }
+        footer { padding: 40px; opacity: 0.7; font-size: 0.9rem; text-align: center; width: 100%; margin-top: auto; }
 
         @media (max-width: 480px) {
             #response-container { padding: 15px; }
@@ -121,8 +130,8 @@
 <body>
 
     <header>
-        <h1>SommelierDig<span class="ia-focus">i</span>t<span class="ia-focus">a</span>l</h1>
-        <p style="letter-spacing: 3px; font-size: 0.7rem; margin-top: 10px; opacity: 0.8;">BY PERE BADIA I LORENZ</p>
+        <h1>Cercav<span class="ia-focus">i</span>ns</h1>
+        <p>El teu cercador de vins. Recorda que pot ser en català, castellà, anglès i francès.</p>
     </header>
 
     <main class="search-area">
@@ -138,7 +147,9 @@
         </div>
     </main>
 
-    <footer><p id="footer-text"></p></footer>
+    <footer>
+        <p id="footer-text"></p>
+    </footer>
 
     <script>
         const input = document.getElementById('chat-input');
@@ -150,13 +161,12 @@
         const btnVeu = document.getElementById('btn-veu');
 
         const i18n = {
-            'ca': { placeholder: "Què necessites..?", loading: "Consultant el celler...", btn: "Nova consulta", footer: "© 2026 · TOTS ELS DRETS RESERVATS" },
-            'es': { placeholder: "¿Qué necesitas?", loading: "Consultando bodega...", btn: "Nueva consulta", footer: "© 2026 · TODOS LOS DERECHOS RESERVADOS" },
-            'fr': { placeholder: "Que désirez-vous ?", loading: "Consultation de la cave...", btn: "Nouvelle recherche", footer: "© 2026 · TOUS DROITS RÉSERVÉS" },
-            'en': { placeholder: "How can I help you?", loading: "Consulting the cellar...", btn: "New search", footer: "© 2026 · ALL RIGHTS RESERVED" }
+            'ca': { placeholder: "Quin vi busques?", loading: "Consultant el celler...", btn: "Nova consulta", footer: "Pere Badia i Lorenz © 2026 · TOTS ELS DRETS RESERVATS" },
+            'es': { placeholder: "¿Qué vino buscas?", loading: "Consultando bodega...", btn: "Nueva consulta", footer: "Pere Badia i Lorenz © 2026 · TODOS LOS DERECHOS RESERVADOS" },
+            'fr': { placeholder: "Quel vin cherchez-vous ?", loading: "Consultation de la cave...", btn: "Nouvelle recherche", footer: "Pere Badia i Lorenz © 2026 · TOUS DROITS RÉSERVÉS" },
+            'en': { placeholder: "What wine are you looking for?", loading: "Consulting the cellar...", btn: "New search", footer: "Pere Badia i Lorenz © 2026 · ALL RIGHTS RESERVED" }
         };
 
-        // Detecció inicial d'idioma millorada
         const getBrowserLang = () => {
             const lang = (navigator.language || 'ca').split('-')[0];
             return i18n[lang] ? lang : 'ca';
@@ -223,7 +233,7 @@
                 const res = await fetch('/api/sommelier', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ pregunta, idioma: currentLang }) // Enviem l'idioma detectat
+                    body: JSON.stringify({ pregunta, idioma: currentLang })
                 });
                 
                 const data = await res.json();

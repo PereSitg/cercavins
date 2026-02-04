@@ -120,7 +120,7 @@
 <body>
 
     <header>
-        <h1>Sommel<span class="ia-focus">i</span>erDig<span class="ia-focus">i</span>t<span class="ia-focus">a</span>l</h1>
+        <h1>SommelierDig<span class="ia-focus">i</span>t<span class="ia-focus">a</span>l</h1>
         <p style="margin-top: 10px; opacity: 0.9;">El teu cercador de vins intel·ligent</p>
     </header>
 
@@ -182,7 +182,6 @@
         btnBorrar.innerText = texts.btn;
         footerEle.innerText = texts.footer;
 
-        // Lògica del micròfon (Speech Recognition)
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         if (SpeechRecognition) {
             const recognition = new SpeechRecognition();

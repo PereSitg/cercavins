@@ -136,7 +136,7 @@
 
     <main class="search-area">
         <div class="input-wrapper">
-            <input type="text" id="chat-input" placeholder="..." autocomplete="off">
+            <input type="text" id="chat-input" placeholder="" autocomplete="off">
             <button id="btn-veu" title="Cerca per veu">🎙️</button>
         </div>
         
@@ -160,11 +160,32 @@
         const footerEle = document.getElementById('footer-text');
         const btnVeu = document.getElementById('btn-veu');
 
+        // Textos actualitzats amb "Què necessites?"
         const i18n = {
-            'ca': { placeholder: "Quin vi busques?", loading: "Consultant el celler...", btn: "Nova consulta", footer: "Pere Badia i Lorenz © 2026 · TOTS ELS DRETS RESERVATS" },
-            'es': { placeholder: "¿Qué vino buscas?", loading: "Consultando bodega...", btn: "Nueva consulta", footer: "Pere Badia i Lorenz © 2026 · TODOS LOS DERECHOS RESERVADOS" },
-            'fr': { placeholder: "Quel vin cherchez-vous ?", loading: "Consultation de la cave...", btn: "Nouvelle recherche", footer: "Pere Badia i Lorenz © 2026 · TOUS DROITS RÉSERVÉS" },
-            'en': { placeholder: "What wine are you looking for?", loading: "Consulting the cellar...", btn: "New search", footer: "Pere Badia i Lorenz © 2026 · ALL RIGHTS RESERVED" }
+            'ca': { 
+                placeholder: "Què necessites?", 
+                loading: "Consultant el celler...", 
+                btn: "Nova consulta", 
+                footer: "Pere Badia i Lorenz © 2026 · Tots els drets reservats" 
+            },
+            'es': { 
+                placeholder: "¿Qué necesitas?", 
+                loading: "Consultando bodega...", 
+                btn: "Nueva consulta", 
+                footer: "Pere Badia i Lorenz © 2026 · Todos los derechos reservados" 
+            },
+            'fr': { 
+                placeholder: "Qu'est-ce qu'il vous faut ?", 
+                loading: "Consultation de la cave...", 
+                btn: "Nouvelle recherche", 
+                footer: "Pere Badia i Lorenz © 2026 · Tous droits réservés" 
+            },
+            'en': { 
+                placeholder: "What do you need?", 
+                loading: "Consulting the cellar...", 
+                btn: "New search", 
+                footer: "Pere Badia i Lorenz © 2026 · All rights reserved" 
+            }
         };
 
         const getBrowserLang = () => {
@@ -229,3 +250,54 @@
             container.style.display = "block";
             windowBox.innerHTML = `<i>${texts.loading}</i>`;
             galeria.innerHTML = "";
+
+            try {
+                const res = await fetch('/api/sommelier', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ pregunta, idioma: currentLang })
+                });
+                
+                const data = await res.json();
+                
+                if (res.ok) {
+                    input.value = "";
+                    let textPur = data.resposta || "";
+                    let vinsJSON = [];
+
+                    if (textPur.includes('|||')) {
+                        const parts = textPur.split('|||');
+                        textPur = parts[0];
+                        try { vinsJSON = JSON.parse(parts[1].trim()); } catch(e) { vinsJSON = []; }
+                    }
+
+                    windowBox.innerHTML = formatarResposta(textPur);
+                    
+                    if (vinsJSON && vinsJSON.length > 0) {
+                        vinsJSON.forEach(v => {
+                            const imgPath = v.imatge || "https://images.vivino.com/thumbs/default_label_600x600.png";
+                            const item = document.createElement('div');
+                            item.className = 'vi-item';
+                            item.innerHTML = `
+                                <img src="${imgPath}" onerror="this.src='https://images.vivino.com/thumbs/default_label_600x600.png'">
+                                <div class="vi-nom">${v.nom}</div>
+                            `;
+                            galeria.appendChild(item);
+                        });
+                    }
+                } else {
+                    windowBox.innerHTML = `<span class="error-msg">⚠️ ${data.resposta || "Error"}</span>`;
+                }
+            } catch (err) {
+                windowBox.innerHTML = `<span class="error-msg">⚠️ Error de connexió amb el servidor.</span>`;
+            }
+        };
+
+        input.onkeypress = (e) => {
+            if (e.key === 'Enter' && input.value.trim() !== "") {
+                processarCerca(input.value);
+            }
+        };
+    </script>
+</body>
+</html>

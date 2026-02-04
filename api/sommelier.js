@@ -6,6 +6,7 @@ module.exports = async (req, res) => {
   try {
     const { pregunta, idioma } = req.body;
 
+    // 1. GESTIÓ D'IDIOMES (Ara inclou Anglès)
     let llenguaResposta = "CATALÀ";
     let termeUva = "raïm"; 
     
@@ -22,6 +23,7 @@ module.exports = async (req, res) => {
         }
     }
 
+    // 2. INICIALITZACIÓ FIREBASE
     if (!admin.apps.length) {
       admin.initializeApp({
         credential: admin.credential.cert({
@@ -33,7 +35,8 @@ module.exports = async (req, res) => {
     }
     
     const db = admin.firestore();
-    const snapshot = await db.collection('cercavins').limit(20).get(); 
+    // Augmentem una mica el límit perquè la IA tingui on triar
+    const snapshot = await db.collection('cercavins').limit(40).get(); 
     let celler = [];
     
     snapshot.forEach(doc => { 
@@ -43,9 +46,11 @@ module.exports = async (req, res) => {
         do: d.do,
         imatge: d.imatge, 
         tipus: d.tipus
+        // No enviem el preu a la IA per estalviar tokens i complir la teva norma
       });
     });
 
+    // 3. CONSULTA A GROQ (Model 70B)
     const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -57,23 +62,31 @@ module.exports = async (req, res) => {
         messages: [
           { 
             role: 'system', 
-            content: `Ets el sommelier de Cercavins. 
-            NORMES CRÍTIQUES:
-            1. Respon SEMPRE en ${llenguaResposta}. Està prohibit barrejar paraules en català si respon l'idioma no és català. (Exemple: si respons en castellà, mai diguis "raïm", digues sempre "${termeUva}").
-            2. Per a cada vi recomanat, identifica la seva varietat de ${termeUva} usant la teva memòria interna. Explica breument per què va bé amb el plat.
-            3. NO MENCIONIS EL PREU.
-            4. Recomana 3 o 4 vins.
-            5. Al final, afegeix "|||" i el JSON (nom, do, imatge).`
+            content: `Ets el sommelier expert de Cercavins. 
+            NORMES DE RESPOSTA:
+            1. Respon exclusivament en ${llenguaResposta}.
+            2. Si l'idioma és ${llenguaResposta}, no usis MAI paraules en altres idiomes (Exemple: si és anglès, usa "${termeUva}").
+            3. Sigues elegant i professional. Recomana 3 o 4 vins del celler proporcionat que millor maridin amb la pregunta.
+            4. Per cada vi, explica la varietat de ${termeUva} (usa la teva memòria si no està al JSON) i per què és ideal.
+            5. PROHIBIT MENCIONAR PREUS.
+            6. Estructura: Text de la recomanació + "|||" + JSON formatat amb [ {nom, do, imatge} ].`
           },
-          { role: 'user', content: `Vins: ${JSON.stringify(celler)}. Pregunta: ${pregunta}` }
-        ]
+          { role: 'user', content: `Celler disponible: ${JSON.stringify(celler)}. Pregunta de l'usuari: ${pregunta}` }
+        ],
+        temperature: 0.7 // Un pèl de creativitat per fer-ho més natural
       })
     });
 
     const data = await response.json();
-    res.status(200).json({ resposta: data.choices[0].message.content });
+    
+    if (data.choices && data.choices[0]) {
+        res.status(200).json({ resposta: data.choices[0].message.content });
+    } else {
+        throw new Error("Resposta buida de la IA");
+    }
 
   } catch (error) {
-    res.status(500).json({ resposta: "ERROR: " + error.message });
+    console.error("Sommelier Error:", error);
+    res.status(500).json({ resposta: "Ho sento, he tingut un problema amb el celler. Torna a provar-ho en un moment. ||| []" });
   }
 };

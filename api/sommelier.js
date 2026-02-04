@@ -33,34 +33,24 @@ module.exports = async (req, res) => {
     }
     
     const db = admin.firestore();
-    
-    // --- NOU SISTEMA DE FILTRATGE ---
-    // Extraiem paraules clau de la pregunta per buscar-les a Firebase
-    const paraulesClau = pregunta.split(' ')
-        .filter(p => p.length > 3) // Només paraules significatives
-        .map(p => p.charAt(0).toUpperCase() + p.slice(1).toLowerCase());
-
+    const paraulesClau = pregunta.split(' ').filter(p => p.length > 2);
     let query = db.collection('cercavins');
-    
-    // Si l'usuari menciona un nom (com Cune), intentem filtrar per nom
-    // Si no, portem un pool de 50 vins (més marge que 20) per triar
     let snapshot;
+
+    // Millorem la cerca: si hi ha paraules clau, busquem per prefix
     if (paraulesClau.length > 0) {
-        // Busquem vins que comencin per la paraula principal de la cerca
-        snapshot = await query.where('nom', '>=', paraulesClau[0])
-                              .where('nom', '<=', paraulesClau[0] + '\uf8ff')
-                              .limit(40).get();
-    } 
-    
-    // Si la cerca específica no dóna fruits, portem 40 vins variats
+        const cerca = paraulesClau[0].charAt(0).toUpperCase() + paraulesClau[0].slice(1).toLowerCase();
+        snapshot = await query.where('nom', '>=', cerca).where('nom', '<=', cerca + '\uf8ff').limit(15).get();
+    }
+
     if (!snapshot || snapshot.empty) {
-        snapshot = await query.limit(40).get();
+        snapshot = await query.limit(20).get();
     }
 
     let celler = [];
     snapshot.forEach(doc => { 
       const d = doc.data();
-      celler.push({ nom: d.nom, do: d.do, imatge: d.imatge, tipus: d.tipus });
+      celler.push({ nom: d.nom, do: d.do, imatge: d.imatge, tipus: d.tipus, raim: d.raim || "Varietat típica de la zona" });
     });
 
     const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -74,13 +64,14 @@ module.exports = async (req, res) => {
         messages: [
           { 
             role: 'system', 
-            content: `Ets el sommelier de Cercavins.
+            content: `Ets el sommelier expert de Cercavins. 
+            INSTRUCCIONS DE RESPOSTA:
             1. Respon en ${llenguaResposta}.
-            2. Recomana 3-4 vins del JSON enviat.
-            3. Si el vi que demana l'usuari NO és al JSON, digues-li amb educació que no el tens en estoc actualment, però recomana'n un de similar del llistat que sí tens.
-            4. FORMAT: [Text]|||[JSON]. Cap frase extra després de |||.`
+            2. Per a cada vi recomanat: Escriu el nom, la D.O., el tipus de ${termeUva} i una nota de maridatge detallada.
+            3. És OBLIGATORI que la resposta acabi amb "|||" i un JSON array amb els objectes dels vins triats (nom, do, imatge).
+            4. Si el vi demanat és al celler, dóna tota la seva informació.`
           },
-          { role: 'user', content: `Celler: ${JSON.stringify(celler)}. Pregunta: ${pregunta}` }
+          { role: 'user', content: `Vins disponibles: ${JSON.stringify(celler)}. Pregunta de l'usuari: ${pregunta}` }
         ],
         temperature: 0.1
       })

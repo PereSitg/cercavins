@@ -8,9 +8,7 @@ module.exports = async (req, res) => {
 
     const langMap = {
       'ca': { res: 'CATALÀ' },
-      'es': { res: 'CASTELLANO' },
-      'en': { res: 'ENGLISH' },
-      'fr': { res: 'FRANÇAIS' }
+      'es': { res: 'CASTELLANO' }
     };
     const config = langMap[idioma?.slice(0,2)] || langMap['ca'];
 
@@ -25,32 +23,16 @@ module.exports = async (req, res) => {
     }
     
     const db = admin.firestore();
-    const p = pregunta.toLowerCase();
     
-    // 1. FILTRATGE INTEL·LIGENT DE FIREBASE
-    let query = db.collection('cercavins');
-
-    if (p.includes('blanc') || p.includes('peix') || p.includes('marisc') || p.includes('arròs') || p.includes('percebe')) {
-      query = query.where('tipus', '==', 'Blanc');
-    } else if (p.includes('negre') || p.includes('carn') || p.includes('vedella') || p.includes('formatge')) {
-      query = query.where('tipus', '==', 'Negre');
-    } else if (p.includes('rosat')) {
-      query = query.where('tipus', '==', 'Rosat');
-    } else if (p.includes('escumós') || p.includes('cava') || p.includes('champagne') || p.includes('corpinnat')) {
-      query = query.where('tipus', '==', 'Escumós');
-    } else {
-      // Si la cerca és genèrica, limitem a 150 per seguretat
-      query = query.limit(150);
-    }
-
-    const snapshot = await query.get();
+    // 1. AGAFEM EL CELLER (Límit de seguretat de 150 per evitar errors de la IA)
+    const snapshot = await db.collection('cercavins').limit(150).get();
     let celler = [];
     snapshot.forEach(doc => {
         const d = doc.data();
         celler.push({ n: d.nom, t: d.tipus, i: d.imatge });
     });
 
-    // 2. CRIDA A LA IA (Ara el catàleg ja ve filtrat i no donarà error)
+    // 2. CRIDA A LA IA (Model 70b per a màxima qualitat)
     const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -62,29 +44,27 @@ module.exports = async (req, res) => {
         messages: [
           { 
             role: 'system', 
-            content: `Sommelier técnico. Idioma: ${config.res}. 
-            REGLAS:
-            1. Nombres en MAJÚSCULAS y <span class="nom-vi-destacat">NOMBRE</span>.
-            2. Prohibido usar asteriscos (**).
-            3. Estilo narrativo.
-            4. Separador obligatorio: Texto ||| [{"nom":"...","imatge":"..."}]`
+            content: `Ets un sommelier professional. Respon en ${config.res}. 
+            NORMES OBLIGATÒRIES:
+            1. Has d'oferir exactament 3 o 4 vins del catàleg proporcionat.
+            2. No usis MAJÚSCULES. Usa text normal.
+            3. Els noms dels vins han d'anar dins de: <span class="nom-vi-destacat">nom del vi</span> (perquè surtin en groc).
+            4. No usis asteriscs (**).
+            5. FORMAT DE SORTIDA: Text explicatiu ||| [{"nom":"nom","imatge":"url"}]`
           },
           { 
             role: 'user', 
-            content: `Catálogo filtrado: ${JSON.stringify(celler)}. Pregunta: ${pregunta}` 
+            content: `Catàleg: ${JSON.stringify(celler)}. Pregunta: ${pregunta}` 
           }
         ],
-        temperature: 0.1
+        temperature: 0.3 // Pugem una mica perquè sigui més creatiu triant vins
       })
     });
-
-    if (!response.ok) {
-        return res.status(200).json({ resposta: "Ho sento, encara hi ha massa dades. Prova de ser més específic (blanc, negre...). ||| []" });
-    }
 
     const data = await response.json();
     let respostaIA = data.choices[0].message.content;
 
+    // 3. NETEJA I ENVIAMENT
     if (respostaIA.includes('|||')) {
         res.status(200).json({ resposta: respostaIA });
     } else {

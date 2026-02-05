@@ -6,7 +6,6 @@ module.exports = async (req, res) => {
   try {
     const { pregunta, idioma } = req.body;
 
-    // 1. Configuració d'idioma basada en el dispositiu de l'usuari
     const langMap = {
       'ca': { res: 'CATALÀ', uva: 'raïm' },
       'es': { res: 'CASTELLANO', uva: 'uva' },
@@ -15,7 +14,6 @@ module.exports = async (req, res) => {
     };
     const config = langMap[idioma?.slice(0,2)] || langMap['ca'];
 
-    // 2. Inicialització de Firebase
     if (!admin.apps.length) {
       admin.initializeApp({
         credential: admin.credential.cert({
@@ -28,21 +26,19 @@ module.exports = async (req, res) => {
     
     const db = admin.firestore();
     
-    // 3. OBTENCIÓ TOTAL: Llegeix TOT el catàleg sense restriccions
+    // MILLORA: Agafem només els camps imprescindibles per no saturar la memòria
     const snapshot = await db.collection('cercavins').get();
     let celler = [];
     snapshot.forEach(doc => {
         const d = doc.data();
         celler.push({
-            nom: d.nom,
-            do: d.do,
-            imatge: d.imatge,
-            tipus: d.tipus,
-            raim: d.raim || "Cupatge tradicional"
+            n: d.nom,      // Fem servir claus curtes per estalviar espai
+            t: d.tipus,
+            r: d.raim || "",
+            i: d.imatge
         });
     });
 
-    // 4. Crida a la API Groq (Llama 3.3 70b)
     const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -54,46 +50,39 @@ module.exports = async (req, res) => {
         messages: [
           { 
             role: 'system', 
-            content: `Eres un Sommelier Técnico experto. Tu tono es profesional y analítico.
-
-            INSTRUCCIONES DE FORMATO:
-            1. Responde siempre en el idioma solicitado: ${config.res}.
-            2. NOMBRES DE VINOS: Siempre en MAYÚSCULAS y dentro de <span class="nom-vi-destacat">NOMBRE DEL VINO</span>.
-            3. PROHIBIDO: No uses asteriscos (**), ni negritas, ni listas. Usa exclusivamente texto narrativo.
-            4. EXPLICACIÓN: Argumenta técnicamente por qué el vino elegido (acidez, cuerpo, notas) encaja con la comida.
-            
-            ESTRUCTURA DE SALIDA:
-            [Texto narrativo de la recomendación]
-            |||
-            [{"nom":"NOMBRE EN MAYÚSCULAS","imatge":"url"}]`
+            content: `Ets un Sommelier Tècnic. Respon en ${config.res}. 
+            NORMES: 1. Noms en MAJÚSCULES dins de <span class="nom-vi-destacat">NOM</span>. 
+            2. No usis asteriscs (**). 
+            3. Analitza el maridatge tècnicament.
+            ESTRUCTURA: Text ||| [{"nom":"...","imatge":"..."}]`
           },
           { 
             role: 'user', 
-            content: `Idioma de respuesta: ${config.res}. Catálogo completo: ${JSON.stringify(celler)}. Pregunta: ${pregunta}` 
+            content: `Catàleg: ${JSON.stringify(celler)}. Pregunta: ${pregunta}` 
           }
         ],
-        temperature: 0.1 // Precisió màxima per evitar errors de format
+        temperature: 0.1
       })
     });
+
+    if (!response.ok) {
+        const errorData = await response.json();
+        console.error('Error de Groq:', errorData);
+        return res.status(500).json({ resposta: "Error de la IA ||| []" });
+    }
 
     const data = await response.json();
     let respostaIA = data.choices[0].message.content;
 
-    // 5. Neteja de seguretat per al separador i el JSON
     if (respostaIA.includes('|||')) {
         const parts = respostaIA.split('|||');
-        const textNet = parts[0].trim();
-        let jsonNet = parts[1].trim();
-        
-        const ultimaClau = jsonNet.lastIndexOf(']');
-        if (ultimaClau !== -1) jsonNet = jsonNet.substring(0, ultimaClau + 1);
-        
-        res.status(200).json({ resposta: `${textNet} ||| ${jsonNet}` });
+        res.status(200).json({ resposta: `${parts[0].trim()} ||| ${parts[1].trim()}` });
     } else {
         res.status(200).json({ resposta: `${respostaIA} ||| []` });
     }
 
   } catch (error) {
-    res.status(500).json({ resposta: "Error ||| []" });
+    console.error('Error general:', error);
+    res.status(500).json({ resposta: "Error de connexió ||| []" });
   }
 };

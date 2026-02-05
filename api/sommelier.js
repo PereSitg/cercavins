@@ -28,8 +28,7 @@ module.exports = async (req, res) => {
     
     const db = admin.firestore();
     
-    // 3. Estratègia de cerca: Portem un bloc de vins i deixem que la IA (la bona) trii
-    // Demà amb el model 70b, podrà analitzar 50 vins sense despentinar-se
+    // 3. Estratègia de cerca
     const snapshot = await db.collection('cercavins').limit(50).get();
     let celler = [];
     snapshot.forEach(doc => {
@@ -43,7 +42,7 @@ module.exports = async (req, res) => {
         });
     });
 
-    // 4. Crida a la API (Demà canvia el model a 'llama-3.1-70b-versatile' si el tens actiu)
+    // 4. Crida a la API (Llama 3.3 70b)
     const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -51,28 +50,41 @@ module.exports = async (req, res) => {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        model: 'llama-3.3-70b-versatile', // <--- CANVIA AIXÒ DEMÀ SI VOLS LA MAXIMA QUALITAT
+        model: 'llama-3.3-70b-versatile',
         messages: [
           { 
             role: 'system', 
-            content: `Ets el sommelier expert de Cercavins.
-            - Respon en ${config.res}.
-            - Recomana 3 vins del catàleg proporcionat que millor s'ajustin a la pregunta.
-            - Per cada vi explica: Nom, D.O., varietat de ${config.uva} i maridatge.
-            - És CRÍTIC que el format final sigui: [Text de la recomanació]|||[JSON Array amb els objectes seleccionats].
-            - No inventis vins que no estiguin al llistat.`
+            content: `Ets el sommelier expert de Cercavins. 
+
+            NORMES DE RESPOSTA:
+            1. Respon en ${config.res}.
+            2. Si demanen recomanació, tria entre 3 i 4 vins. Si pregunten per un vi concret, explica les seves notes i el raïm.
+            3. FORMAT DELS NOMS: Escriu el nom de cada vi així: <span class="nom-vi-destacat">NOM DEL VI</span>.
+            4. PROHIBIT: No usis asteriscs (**), ni negretes, ni llistes amb guions. Usa text narratiu.
+            5. SEPARADOR OBLIGATORI: Acaba el text amb el separador ||| i el JSON Array amb els objectes seleccionats (nom i imatge). No escriguis res després del JSON.`
           },
           { role: 'user', content: `Catàleg: ${JSON.stringify(celler)}. Pregunta: ${pregunta}` }
         ],
-        temperature: 0.2
+        temperature: 0.1
       })
     });
 
     const data = await response.json();
-    res.status(200).json({ resposta: data.choices[0].message.content });
+    let respostaIA = data.choices[0].message.content;
+
+    // Neteja de seguretat per evitar text extra després del JSON
+    if (respostaIA.includes('|||')) {
+        const parts = respostaIA.split('|||');
+        const textNet = parts[0].trim();
+        let jsonNet = parts[1].trim();
+        const ultimaClau = jsonNet.lastIndexOf(']');
+        if (ultimaClau !== -1) jsonNet = jsonNet.substring(0, ultimaClau + 1);
+        res.status(200).json({ resposta: `${textNet} ||| ${jsonNet}` });
+    } else {
+        res.status(200).json({ resposta: respostaIA + " ||| []" });
+    }
 
   } catch (error) {
     res.status(500).json({ resposta: "Error de connexió ||| []" });
   }
 };
-

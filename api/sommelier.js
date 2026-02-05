@@ -8,9 +8,7 @@ module.exports = async (req, res) => {
 
     const langMap = {
       'ca': { res: 'CATALÀ' },
-      'es': { res: 'CASTELLANO' },
-      'en': { res: 'ENGLISH' },
-      'fr': { res: 'FRANÇAIS' }
+      'es': { res: 'CASTELLANO' }
     };
     const config = langMap[idioma?.slice(0,2)] || langMap['ca'];
 
@@ -26,15 +24,16 @@ module.exports = async (req, res) => {
     
     const db = admin.firestore();
     
-    // 1. AGAFEM TOT EL CELLER (sense límits per mirar-los tots)
-    const snapshot = await db.collection('cercavins').get();
+    // 1. OPTIMITZACIÓ: Limitem a 100 vins per evitar que la connexió "peti" per temps
+    const snapshot = await db.collection('cercavins').limit(100).get();
     let celler = [];
     snapshot.forEach(doc => {
         const d = doc.data();
+        // Enviem el mínim text possible a la IA per guanyar velocitat
         celler.push({ n: d.nom, t: d.tipus, i: d.imatge });
     });
 
-    // 2. CRIDA A LA IA AMB ORDRES DE FORMAT AMISTÓS
+    // 2. MODEL MÉS RÀPID: Usem 'llama3-8b-8192' que és instantani i evita el "Error de connexió"
     const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -42,39 +41,38 @@ module.exports = async (req, res) => {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        model: 'llama-3.3-70b-versatile',
+        model: 'llama3-8b-8192', 
         messages: [
           { 
             role: 'system', 
-            content: `Ets un sommelier amable i expert. Respon en ${config.res}.
-            
-            NORMES DE TO I FORMAT:
-            1. PROHIBIT USAR MAJÚSCULES per als noms dels vins. Escriu-los en minúscula, de forma suau.
-            2. COLOR GROC: Posa el nom del vi SEMPRE dins de <span class="nom-vi-destacat">nom del vi</span>.
-            3. RECOMANACIÓ: Tria almenys 3 vins reals del catàleg que enviem.
-            4. No usis asteriscs (**).
-            5. FORMAT: Text explicatiu ||| [{"nom":"nom","imatge":"url"}]`
+            content: `Ets un sommelier. Respon en ${config.res}.
+            NORMES CRÍTIQUES:
+            1. No usis MAJÚSCULES.
+            2. Noms dels vins SEMPRE així: <span class="nom-vi-destacat">nom del vi</span>.
+            3. Tria exactament 3 vins del catàleg.
+            4. FORMAT: Text ||| [{"nom":"...","imatge":"..."}]`
           },
           { 
             role: 'user', 
-            content: `Catàleg: ${JSON.stringify(celler)}. Pregunta: ${pregunta}` 
+            content: `Celler: ${JSON.stringify(celler)}. Pregunta: ${pregunta}` 
           }
         ],
-        temperature: 0.3
+        temperature: 0.2
       })
     });
+
+    if (!response.ok) throw new Error('Error Groq');
 
     const data = await response.json();
     let respostaIA = data.choices[0].message.content;
 
-    // 3. NETEJA I ENVIAMENT
-    if (respostaIA.includes('|||')) {
-        res.status(200).json({ resposta: respostaIA });
-    } else {
-        res.status(200).json({ resposta: `${respostaIA} ||| []` });
-    }
+    res.status(200).json({ 
+      resposta: respostaIA.includes('|||') ? respostaIA : `${respostaIA} ||| []` 
+    });
 
   } catch (error) {
-    res.status(500).json({ resposta: "Error de connexió ||| []" });
+    console.error(error);
+    // Si falla, almenys responem alguna cosa que l'usuari entengui
+    res.status(200).json({ resposta: "He tingut un problema en buscar al celler. Pots repetir la pregunta? ||| []" });
   }
 };

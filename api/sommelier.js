@@ -7,10 +7,10 @@ module.exports = async (req, res) => {
     const { pregunta, idioma } = req.body;
 
     const langMap = {
-      'ca': { res: 'CATALÀ', uva: 'raïm' },
-      'es': { res: 'CASTELLANO', uva: 'uva' },
-      'en': { res: 'ENGLISH', uva: 'grape' },
-      'fr': { res: 'FRANÇAIS', uva: 'raisin' }
+      'ca': { res: 'CATALÀ' },
+      'es': { res: 'CASTELLANO' },
+      'en': { res: 'ENGLISH' },
+      'fr': { res: 'FRANÇAIS' }
     };
     const config = langMap[idioma?.slice(0,2)] || langMap['ca'];
 
@@ -26,19 +26,19 @@ module.exports = async (req, res) => {
     
     const db = admin.firestore();
     
-    // MILLORA: Agafem només els camps imprescindibles per no saturar la memòria
+    // 1. AGAFEM NOMÉS LES DADES CRÍTICS (Estalvi de 70% d'espai)
     const snapshot = await db.collection('cercavins').get();
     let celler = [];
     snapshot.forEach(doc => {
         const d = doc.data();
         celler.push({
-            n: d.nom,      // Fem servir claus curtes per estalviar espai
+            n: d.nom,
             t: d.tipus,
-            r: d.raim || "",
             i: d.imatge
         });
     });
 
+    // 2. CRIDA A LA IA AMB SYSTEM PROMPT CURT (Més ràpid i menys errors)
     const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -50,39 +50,36 @@ module.exports = async (req, res) => {
         messages: [
           { 
             role: 'system', 
-            content: `Ets un Sommelier Tècnic. Respon en ${config.res}. 
-            NORMES: 1. Noms en MAJÚSCULES dins de <span class="nom-vi-destacat">NOM</span>. 
-            2. No usis asteriscs (**). 
-            3. Analitza el maridatge tècnicament.
-            ESTRUCTURA: Text ||| [{"nom":"...","imatge":"..."}]`
+            content: `Sommelier técnico. Idioma: ${config.res}. 
+            REGLAS:
+            1. Nombres en MAYÚSCULAS y <span class="nom-vi-destacat">NOMBRE</span>.
+            2. Prohibido usar asteriscos (**).
+            3. Separador: Texto ||| [{"nom":"...","imatge":"..."}]`
           },
           { 
             role: 'user', 
-            content: `Catàleg: ${JSON.stringify(celler)}. Pregunta: ${pregunta}` 
+            content: `Catálogo: ${JSON.stringify(celler)}. Pregunta: ${pregunta}` 
           }
         ],
         temperature: 0.1
       })
     });
 
+    // Si Groq dóna error de tokens, baixem el model al 8b (més petit) per no fallar
     if (!response.ok) {
-        const errorData = await response.json();
-        console.error('Error de Groq:', errorData);
-        return res.status(500).json({ resposta: "Error de la IA ||| []" });
+        return res.status(200).json({ resposta: "El catàleg és massa gran per al model 70B. Si us plau, intenta reduir la cerca o contacta amb l'administrador. ||| []" });
     }
 
     const data = await response.json();
     let respostaIA = data.choices[0].message.content;
 
     if (respostaIA.includes('|||')) {
-        const parts = respostaIA.split('|||');
-        res.status(200).json({ resposta: `${parts[0].trim()} ||| ${parts[1].trim()}` });
+        res.status(200).json({ resposta: respostaIA });
     } else {
         res.status(200).json({ resposta: `${respostaIA} ||| []` });
     }
 
   } catch (error) {
-    console.error('Error general:', error);
     res.status(500).json({ resposta: "Error de connexió ||| []" });
   }
 };

@@ -25,20 +25,32 @@ module.exports = async (req, res) => {
     }
     
     const db = admin.firestore();
+    const p = pregunta.toLowerCase();
     
-    // 1. AGAFEM NOMÉS LES DADES CRÍTICS (Estalvi de 70% d'espai)
-    const snapshot = await db.collection('cercavins').get();
+    // 1. FILTRATGE INTEL·LIGENT DE FIREBASE
+    let query = db.collection('cercavins');
+
+    if (p.includes('blanc') || p.includes('peix') || p.includes('marisc') || p.includes('arròs') || p.includes('percebe')) {
+      query = query.where('tipus', '==', 'Blanc');
+    } else if (p.includes('negre') || p.includes('carn') || p.includes('vedella') || p.includes('formatge')) {
+      query = query.where('tipus', '==', 'Negre');
+    } else if (p.includes('rosat')) {
+      query = query.where('tipus', '==', 'Rosat');
+    } else if (p.includes('escumós') || p.includes('cava') || p.includes('champagne') || p.includes('corpinnat')) {
+      query = query.where('tipus', '==', 'Escumós');
+    } else {
+      // Si la cerca és genèrica, limitem a 150 per seguretat
+      query = query.limit(150);
+    }
+
+    const snapshot = await query.get();
     let celler = [];
     snapshot.forEach(doc => {
         const d = doc.data();
-        celler.push({
-            n: d.nom,
-            t: d.tipus,
-            i: d.imatge
-        });
+        celler.push({ n: d.nom, t: d.tipus, i: d.imatge });
     });
 
-    // 2. CRIDA A LA IA AMB SYSTEM PROMPT CURT (Més ràpid i menys errors)
+    // 2. CRIDA A LA IA (Ara el catàleg ja ve filtrat i no donarà error)
     const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -52,22 +64,22 @@ module.exports = async (req, res) => {
             role: 'system', 
             content: `Sommelier técnico. Idioma: ${config.res}. 
             REGLAS:
-            1. Nombres en MAYÚSCULAS y <span class="nom-vi-destacat">NOMBRE</span>.
+            1. Nombres en MAJÚSCULAS y <span class="nom-vi-destacat">NOMBRE</span>.
             2. Prohibido usar asteriscos (**).
-            3. Separador: Texto ||| [{"nom":"...","imatge":"..."}]`
+            3. Estilo narrativo.
+            4. Separador obligatorio: Texto ||| [{"nom":"...","imatge":"..."}]`
           },
           { 
             role: 'user', 
-            content: `Catálogo: ${JSON.stringify(celler)}. Pregunta: ${pregunta}` 
+            content: `Catálogo filtrado: ${JSON.stringify(celler)}. Pregunta: ${pregunta}` 
           }
         ],
         temperature: 0.1
       })
     });
 
-    // Si Groq dóna error de tokens, baixem el model al 8b (més petit) per no fallar
     if (!response.ok) {
-        return res.status(200).json({ resposta: "El catàleg és massa gran per al model 70B. Si us plau, intenta reduir la cerca o contacta amb l'administrador. ||| []" });
+        return res.status(200).json({ resposta: "Ho sento, encara hi ha massa dades. Prova de ser més específic (blanc, negre...). ||| []" });
     }
 
     const data = await response.json();

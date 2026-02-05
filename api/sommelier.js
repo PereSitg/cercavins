@@ -51,7 +51,7 @@ module.exports = async (req, res) => {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        model: 'llama-3.1-70b-versatile', // <--- CANVIA AIXÒ DEMÀ SI VOLS LA MAXIMA QUALITAT
+        model: 'llama-3.3-70b-versatile', // <--- CANVIA AIXÒ DEMÀ SI VOLS LA MAXIMA QUALITAT
         messages: [
           { 
             role: 'system', 
@@ -75,3 +75,4 @@ module.exports = async (req, res) => {
     res.status(500).json({ resposta: "Error de connexió ||| []" });
   }
 };
+

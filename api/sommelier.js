@@ -5,10 +5,14 @@ module.exports = async (req, res) => {
 
   try {
     const { pregunta, idioma } = req.body;
+    const p = pregunta.toLowerCase();
 
+    // MAPA D'IDIOMES COMPLET (Català, Castellà, Anglès, Francès)
     const langMap = {
       'ca': { res: 'CATALÀ' },
-      'es': { res: 'CASTELLANO' }
+      'es': { res: 'CASTELLANO' },
+      'en': { res: 'ENGLISH' },
+      'fr': { res: 'FRANÇAIS' }
     };
     const config = langMap[idioma?.slice(0,2)] || langMap['ca'];
 
@@ -23,17 +27,35 @@ module.exports = async (req, res) => {
     }
     
     const db = admin.firestore();
-    
-    // 1. AGAFEM TOT EL CELLER SENSE LÍMITS
-    const snapshot = await db.collection('cercavins').get();
+    let query = db.collection('cercavins');
+
+    // FILTRATGE INTEL·LIGENT (Segons paraules clau en la pregunta)
+    if (p.includes('blanc') || p.includes('peix') || p.includes('marisc') || p.includes('percebe') || p.includes('fish') || p.includes('poisson')) {
+      query = query.where('tipus', '==', 'Blanc');
+    } else if (p.includes('negre') || p.includes('tinto') || p.includes('red') || p.includes('rouge') || p.includes('carn') || p.includes('meat')) {
+      query = query.where('tipus', '==', 'Negre');
+    } else if (p.includes('rosat') || p.includes('rose')) {
+      query = query.where('tipus', '==', 'Rosat');
+    } else if (p.includes('escumós') || p.includes('cava') || p.includes('sparkling') || p.includes('pétillant')) {
+      query = query.where('tipus', '==', 'Escumós');
+    }
+
+    const snapshot = await query.get();
     let celler = [];
     snapshot.forEach(doc => {
         const d = doc.data();
-        // Només n, t i i (mínim espai per evitar errors de connexió)
         celler.push({ n: d.nom, t: d.tipus, i: d.imatge });
     });
 
-    // 2. CRIDA A LA IA
+    // Si el filtre no troba res, agafem una mostra general per no donar error
+    if (celler.length === 0) {
+      const backupSnap = await db.collection('cercavins').limit(100).get();
+      backupSnap.forEach(doc => {
+          const d = doc.data();
+          celler.push({ n: d.nom, t: d.tipus, i: d.imatge });
+      });
+    }
+
     const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -45,12 +67,12 @@ module.exports = async (req, res) => {
         messages: [
           { 
             role: 'system', 
-            content: `Ets un sommelier. Respon en ${config.res}. 
+            content: `Ets un sommelier expert. Respon en ${config.res}.
             NORMES:
-            1. NO MAJÚSCULES. 
-            2. Noms en groc: <span class="nom-vi-destacat">nom del vi</span>. 
-            3. Tria almenys 3 vins.
-            4. FORMAT: Text ||| [{"nom":"...","imatge":"..."}]`
+            1. No usis MAJÚSCULES (escriu suau).
+            2. Noms de vins en groc: <span class="nom-vi-destacat">nom del vi</span>.
+            3. Recomana 3 vins reals del catàleg.
+            4. FORMAT OBLIGATORI: Text explicatiu ||| [{"nom":"...","imatge":"..."}]`
           },
           { 
             role: 'user', 
@@ -62,26 +84,13 @@ module.exports = async (req, res) => {
     });
 
     const data = await response.json();
-    
-    if (data.error) {
-        // Si la IA ens diu que el catàleg és massa gran, ho sabrem per la consola
-        console.error("Error de Groq:", data.error.message);
-        throw new Error("Massa dades");
-    }
-
     let respostaIA = data.choices[0].message.content;
 
-    if (respostaIA.includes('|||')) {
-        const parts = respostaIA.split('|||');
-        res.status(200).json({ resposta: `${parts[0].trim()} ||| ${parts[1].trim()}` });
-    } else {
-        res.status(200).json({ resposta: `${respostaIA} ||| []` });
-    }
+    res.status(200).json({ 
+      resposta: respostaIA.includes('|||') ? respostaIA : `${respostaIA} ||| []` 
+    });
 
   } catch (error) {
-    console.error("Error detectat:", error);
-    res.status(200).json({ 
-        resposta: "He tingut un problema en buscar al celler (possiblement és massa gran). Prova de preguntar per un tipus de vi concret (blanc, negre...). ||| []" 
-    });
+    res.status(200).json({ resposta: "Error ||| []" });
   }
 };

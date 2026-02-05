@@ -8,7 +8,9 @@ module.exports = async (req, res) => {
 
     const langMap = {
       'ca': { res: 'CATALÀ' },
-      'es': { res: 'CASTELLANO' }
+      'es': { res: 'CASTELLANO' },
+      'en': { res: 'ENGLISH' },
+      'fr': { res: 'FRANÇAIS' }
     };
     const config = langMap[idioma?.slice(0,2)] || langMap['ca'];
 
@@ -24,15 +26,15 @@ module.exports = async (req, res) => {
     
     const db = admin.firestore();
     
-    // 1. AGAFEM EL CELLER (Límit de seguretat de 150 per evitar errors de la IA)
-    const snapshot = await db.collection('cercavins').limit(150).get();
+    // 1. AGAFEM TOT EL CELLER (sense límits per mirar-los tots)
+    const snapshot = await db.collection('cercavins').get();
     let celler = [];
     snapshot.forEach(doc => {
         const d = doc.data();
         celler.push({ n: d.nom, t: d.tipus, i: d.imatge });
     });
 
-    // 2. CRIDA A LA IA (Model 70b per a màxima qualitat)
+    // 2. CRIDA A LA IA AMB ORDRES DE FORMAT AMISTÓS
     const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -44,20 +46,21 @@ module.exports = async (req, res) => {
         messages: [
           { 
             role: 'system', 
-            content: `Ets un sommelier professional. Respon en ${config.res}. 
-            NORMES OBLIGATÒRIES:
-            1. Has d'oferir exactament 3 o 4 vins del catàleg proporcionat.
-            2. No usis MAJÚSCULES. Usa text normal.
-            3. Els noms dels vins han d'anar dins de: <span class="nom-vi-destacat">nom del vi</span> (perquè surtin en groc).
+            content: `Ets un sommelier amable i expert. Respon en ${config.res}.
+            
+            NORMES DE TO I FORMAT:
+            1. PROHIBIT USAR MAJÚSCULES per als noms dels vins. Escriu-los en minúscula, de forma suau.
+            2. COLOR GROC: Posa el nom del vi SEMPRE dins de <span class="nom-vi-destacat">nom del vi</span>.
+            3. RECOMANACIÓ: Tria almenys 3 vins reals del catàleg que enviem.
             4. No usis asteriscs (**).
-            5. FORMAT DE SORTIDA: Text explicatiu ||| [{"nom":"nom","imatge":"url"}]`
+            5. FORMAT: Text explicatiu ||| [{"nom":"nom","imatge":"url"}]`
           },
           { 
             role: 'user', 
             content: `Catàleg: ${JSON.stringify(celler)}. Pregunta: ${pregunta}` 
           }
         ],
-        temperature: 0.3 // Pugem una mica perquè sigui més creatiu triant vins
+        temperature: 0.3
       })
     });
 

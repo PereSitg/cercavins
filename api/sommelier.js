@@ -6,12 +6,12 @@ module.exports = async (req, res) => {
   try {
     const { pregunta, idioma } = req.body;
 
-    // 1. Configuració d'idioma estricta
+    // 1. Configuració d'idioma basada en el dispositiu de l'usuari
     const langMap = {
-      'ca': { res: 'CATALÀ (ESTRICTE)', uva: 'raïm' },
-      'es': { res: 'CASTELLANO (ESTRICTO)', uva: 'uva' },
-      'en': { res: 'ENGLISH (STRICT)', uva: 'grape' },
-      'fr': { res: 'FRANÇAIS (STRICT)', uva: 'raisin' }
+      'ca': { res: 'CATALÀ', uva: 'raïm' },
+      'es': { res: 'CASTELLANO', uva: 'uva' },
+      'en': { res: 'ENGLISH', uva: 'grape' },
+      'fr': { res: 'FRANÇAIS', uva: 'raisin' }
     };
     const config = langMap[idioma?.slice(0,2)] || langMap['ca'];
 
@@ -28,7 +28,7 @@ module.exports = async (req, res) => {
     
     const db = admin.firestore();
     
-    // 3. OBTENCIÓ TOTAL: Hem eliminat el .limit(50) per llegir TOT el celler
+    // 3. OBTENCIÓ TOTAL: Llegeix TOT el catàleg sense restriccions
     const snapshot = await db.collection('cercavins').get();
     let celler = [];
     snapshot.forEach(doc => {
@@ -54,45 +54,46 @@ module.exports = async (req, res) => {
         messages: [
           { 
             role: 'system', 
-            content: `Ets un Sommelier Tècnic de Cercavins. 
+            content: `Eres un Sommelier Técnico experto. Tu tono es profesional y analítico.
 
-            INSTRUCCIONS DE FORMAT OBLIGATÒRIES:
-            1. Respon SEMPRE en ${config.res}.
-            2. NOMS DE VINS: Escriu-los en MAJÚSCULES i dins de <span class="nom-vi-destacat">NOM DEL VI</span>.
-            3. PROHIBIT: No usis mai asteriscs (**), negretes de Markdown ni guions de llista.
-            4. MARIDATGE: Per a marisc o carns blanques delicades, prioritza vins blancs o escumosos.
+            INSTRUCCIONES DE FORMATO:
+            1. Responde siempre en el idioma solicitado: ${config.res}.
+            2. NOMBRES DE VINOS: Siempre en MAYÚSCULAS y dentro de <span class="nom-vi-destacat">NOMBRE DEL VINO</span>.
+            3. PROHIBIDO: No uses asteriscos (**), ni negritas, ni listas. Usa exclusivamente texto narrativo.
+            4. EXPLICACIÓN: Argumenta técnicamente por qué el vino elegido (acidez, cuerpo, notas) encaja con la comida.
             
-            ESTRUCTURA DE SORTIDA:
-            [Text de la recomanació analítica]
+            ESTRUCTURA DE SALIDA:
+            [Texto narrativo de la recomendación]
             |||
-            [{"nom":"nom en majúscules","imatge":"url"},{"nom":"...","imatge":"..."}]`
+            [{"nom":"NOMBRE EN MAYÚSCULAS","imatge":"url"}]`
           },
-          { role: 'user', content: `Catàleg complet: ${JSON.stringify(celler)}. Pregunta: ${pregunta}` }
+          { 
+            role: 'user', 
+            content: `Idioma de respuesta: ${config.res}. Catálogo completo: ${JSON.stringify(celler)}. Pregunta: ${pregunta}` 
+          }
         ],
-        temperature: 0.1 // Forcem precisió màxima per evitar errors de format
+        temperature: 0.1 // Precisió màxima per evitar errors de format
       })
     });
 
     const data = await response.json();
     let respostaIA = data.choices[0].message.content;
 
-    // Neteja i enviament de la resposta
+    // 5. Neteja de seguretat per al separador i el JSON
     if (respostaIA.includes('|||')) {
         const parts = respostaIA.split('|||');
         const textNet = parts[0].trim();
         let jsonNet = parts[1].trim();
         
-        // Assegurem que el JSON estigui ben tancat per evitar errors a la galeria
         const ultimaClau = jsonNet.lastIndexOf(']');
         if (ultimaClau !== -1) jsonNet = jsonNet.substring(0, ultimaClau + 1);
         
         res.status(200).json({ resposta: `${textNet} ||| ${jsonNet}` });
     } else {
-        // Si la IA falla el separador, el posem nosaltres manualment
         res.status(200).json({ resposta: `${respostaIA} ||| []` });
     }
 
   } catch (error) {
-    res.status(500).json({ resposta: "Error de connexió ||| []" });
+    res.status(500).json({ resposta: "Error ||| []" });
   }
 };

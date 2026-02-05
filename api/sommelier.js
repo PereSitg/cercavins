@@ -7,7 +7,6 @@ module.exports = async (req, res) => {
     const { pregunta, idioma } = req.body;
     const p = pregunta.toLowerCase();
 
-    // MAPA D'IDIOMES COMPLET (Català, Castellà, Anglès, Francès)
     const langMap = {
       'ca': { res: 'CATALÀ' },
       'es': { res: 'CASTELLANO' },
@@ -29,15 +28,13 @@ module.exports = async (req, res) => {
     const db = admin.firestore();
     let query = db.collection('cercavins');
 
-    // FILTRATGE INTEL·LIGENT (Segons paraules clau en la pregunta)
+    // FILTRE RADICAL PER VELOCITAT (Només agafem 40 vins, els més rellevants)
     if (p.includes('blanc') || p.includes('peix') || p.includes('marisc') || p.includes('percebe') || p.includes('fish') || p.includes('poisson')) {
-      query = query.where('tipus', '==', 'Blanc');
+      query = query.where('tipus', '==', 'Blanc').limit(40);
     } else if (p.includes('negre') || p.includes('tinto') || p.includes('red') || p.includes('rouge') || p.includes('carn') || p.includes('meat')) {
-      query = query.where('tipus', '==', 'Negre');
-    } else if (p.includes('rosat') || p.includes('rose')) {
-      query = query.where('tipus', '==', 'Rosat');
-    } else if (p.includes('escumós') || p.includes('cava') || p.includes('sparkling') || p.includes('pétillant')) {
-      query = query.where('tipus', '==', 'Escumós');
+      query = query.where('tipus', '==', 'Negre').limit(40);
+    } else {
+      query = query.limit(40); // Si no sabem què busca, només 40 per anar ràpid
     }
 
     const snapshot = await query.get();
@@ -47,15 +44,7 @@ module.exports = async (req, res) => {
         celler.push({ n: d.nom, t: d.tipus, i: d.imatge });
     });
 
-    // Si el filtre no troba res, agafem una mostra general per no donar error
-    if (celler.length === 0) {
-      const backupSnap = await db.collection('cercavins').limit(100).get();
-      backupSnap.forEach(doc => {
-          const d = doc.data();
-          celler.push({ n: d.nom, t: d.tipus, i: d.imatge });
-      });
-    }
-
+    // CRIDA A GROQ AMB MODEL MÉS LLEUGER (Llama 8B) PER EVITAR TIMEOUT
     const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -63,23 +52,22 @@ module.exports = async (req, res) => {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        model: 'llama-3.3-70b-versatile',
+        model: 'llama3-8b-8192', // Aquest model respon en 1 segon, el 70B és massa lent per a Vercel
         messages: [
           { 
             role: 'system', 
-            content: `Ets un sommelier expert. Respon en ${config.res}.
-            NORMES:
-            1. No usis MAJÚSCULES (escriu suau).
-            2. Noms de vins en groc: <span class="nom-vi-destacat">nom del vi</span>.
-            3. Recomana 3 vins reals del catàleg.
-            4. FORMAT OBLIGATORI: Text explicatiu ||| [{"nom":"...","imatge":"..."}]`
+            content: `Sommelier professional. Idioma: ${config.res}. 
+            1. NO MAJÚSCULES. 
+            2. Noms en groc: <span class="nom-vi-destacat">nom del vi</span>. 
+            3. Recomana 3 vins del catàleg.
+            4. Format: Text ||| [{"nom":"...","imatge":"..."}]`
           },
           { 
             role: 'user', 
-            content: `Celler: ${JSON.stringify(celler)}. Pregunta: ${pregunta}` 
+            content: `Vins: ${JSON.stringify(celler)}. Pregunta: ${pregunta}` 
           }
         ],
-        temperature: 0.3
+        temperature: 0.2
       })
     });
 
@@ -91,6 +79,6 @@ module.exports = async (req, res) => {
     });
 
   } catch (error) {
-    res.status(200).json({ resposta: "Error ||| []" });
+    res.status(200).json({ resposta: "error de temps. prova de ser més específic (blanc o negre). ||| []" });
   }
 };

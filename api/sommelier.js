@@ -6,12 +6,12 @@ module.exports = async (req, res) => {
   try {
     const { pregunta, idioma } = req.body;
 
-    // 1. Configuració d'idioma
+    // 1. Configuració d'idioma estricta per evitar barreges
     const langMap = {
-      'ca': { res: 'CATALÀ', uva: 'raïm' },
-      'es': { res: 'CASTELLÀ', uva: 'uva' },
-      'en': { res: 'ANGLÈS', uva: 'grape' },
-      'fr': { res: 'FRANCÈS', uva: 'raisin' }
+      'ca': { res: 'idioma CATALÀ (estricte, sense excepcions)', uva: 'raïm' },
+      'es': { res: 'idioma CASTELLANO (estricto, sin excepciones)', uva: 'uva' },
+      'en': { res: 'ENGLISH language (strictly)', uva: 'grape' },
+      'fr': { res: 'langue FRANÇAISE (strictement)', uva: 'raisin' }
     };
     const config = langMap[idioma?.slice(0,2)] || langMap['ca'];
 
@@ -28,7 +28,7 @@ module.exports = async (req, res) => {
     
     const db = admin.firestore();
     
-    // 3. Estratègia de cerca
+    // 3. Obtenció de dades del celler
     const snapshot = await db.collection('cercavins').limit(50).get();
     let celler = [];
     snapshot.forEach(doc => {
@@ -37,12 +37,12 @@ module.exports = async (req, res) => {
             nom: d.nom,
             do: d.do,
             imatge: d.imatge,
-            tipus: d.tipus,
+            tipus: d.tipus, // Important per diferenciar blanc/negre
             raim: d.raim || "Cupatge tradicional"
         });
     });
 
-    // 4. Crida a la API (Llama 3.3 70b)
+    // 4. Crida a la API (Model 70b actiu)
     const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -54,25 +54,29 @@ module.exports = async (req, res) => {
         messages: [
           { 
             role: 'system', 
-            content: `Ets el sommelier expert de Cercavins. 
+            content: `Ets un Sommelier Tècnic de Cercavins. El teu to és professional, directe i analític.
 
-            NORMES DE RESPOSTA:
-            1. Respon en ${config.res}.
-            2. Si demanen recomanació, tria entre 3 i 4 vins. Si pregunten per un vi concret, explica les seves notes i el raïm.
-            3. FORMAT DELS NOMS: Escriu el nom de cada vi així: <span class="nom-vi-destacat">NOM DEL VI</span>.
-            4. PROHIBIT: No usis asteriscs (**), ni negretes, ni llistes amb guions. Usa text narratiu.
-            5. SEPARADOR OBLIGATORI: Acaba el text amb el separador ||| i el JSON Array amb els objectes seleccionats (nom i imatge). No escriguis res després del JSON.`
+            NORMES DE MARIDATGE I CRITERI:
+            1. Per a marisc (percebes, gambes, etc.) i peix blanc, recomana EXCLUSIVAMENT vins blancs o escumosos. Prohibit recomanar vins negres potents.
+            2. Analitza l'acidesa i l'estructura de forma tècnica.
+
+            NORMES DE RESPOSTA I IDIOMA:
+            1. Respon EXCLUSIVAMENT en ${config.res}. Prohibit barrejar idiomes.
+            2. Si demanen recomanació, tria entre 3 i 4 vins. Si pregunten per un vi concret, dona detalls tècnics i de varietat de ${config.uva}.
+            3. FORMAT DELS NOMS: Escriu els noms en MAJÚSCULES dins de <span class="nom-vi-destacat">NOM DEL VI</span>.
+            4. PROHIBIT: No usis asteriscs (**), ni negretes, ni llistes. Text narratiu professional.
+            5. SEPARADOR OBLIGATORI: Acaba amb ||| i el JSON Array.`
           },
           { role: 'user', content: `Catàleg: ${JSON.stringify(celler)}. Pregunta: ${pregunta}` }
         ],
-        temperature: 0.1
+        temperature: 0.1 // Temperatura baixa per màxima precisió
       })
     });
 
     const data = await response.json();
     let respostaIA = data.choices[0].message.content;
 
-    // Neteja de seguretat per evitar text extra després del JSON
+    // Neteja de seguretat del JSON
     if (respostaIA.includes('|||')) {
         const parts = respostaIA.split('|||');
         const textNet = parts[0].trim();

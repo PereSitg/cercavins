@@ -17,13 +17,12 @@ module.exports = async (req, res) => {
   try {
     const { pregunta, idioma } = req.body;
     
-    // 1. RECUPEREM 50 VINS (Sense filtres per evitar errors d'índex)
+    // Mantenim els 50 vins com havies demanat
     const snapshot = await db.collection('cercavins').limit(50).get();
     const celler = [];
     snapshot.forEach(doc => {
       const d = doc.data();
       if (d.nom && d.imatge) {
-        // Mantenim l'objecte minimalista per no saturar els tokens
         celler.push({ n: d.nom.toLowerCase(), i: d.imatge, t: d.tipus || "" });
       }
     });
@@ -31,7 +30,7 @@ module.exports = async (req, res) => {
     const langMap = { 'ca': 'CATALÀ', 'es': 'CASTELLANO', 'en': 'ENGLISH', 'fr': 'FRANÇAIS' };
     const idiomaRes = langMap[idioma?.slice(0, 2)] || 'CATALÀ';
 
-    // 2. CRIDA A LLAMA 3 70B (El model potent)
+    // 2. CRIDA A LLAMA 3.3 70B (El model actualitzat i potent)
     const groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -39,23 +38,18 @@ module.exports = async (req, res) => {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        model: 'llama3-70b-8192', 
+        model: 'llama-3.3-70b-versatile', 
         messages: [
           {
             role: 'system',
-            content: `Ets un sommelier expert. Respon en ${idiomaRes}. 
-            NORMES:
-            1. Tot en minúscules.
-            2. Noms de vins: <span class="nom-vi-destacat">nom</span>.
-            3. Tria els 3 millors vins del catàleg segons la petició.
-            4. FORMAT: text explicatiu ||| [{"nom":"...","imatge":"..."}]`
+            content: `ets un sommelier professional. respon en ${idiomaRes}. tot en minúscules. noms de vins: <span class="nom-vi-destacat">nom del vi</span>. tria 3 vins. format: text ||| [{"nom":"...","imatge":"..."}]`
           },
           {
             role: 'user',
-            content: `Celler: ${JSON.stringify(celler)}. Pregunta: ${pregunta}`
+            content: `celler: ${JSON.stringify(celler)}. pregunta: ${pregunta}`
           }
         ],
-        temperature: 0.3 // Baixa temperatura per mantenir el format rígid
+        temperature: 0.3
       })
     });
 
@@ -74,7 +68,7 @@ module.exports = async (req, res) => {
   } catch (error) {
     console.error("LOG D'ERROR:", error.message);
     res.status(200).json({ 
-      resposta: `el sommelier (70b) diu: ${error.message} ||| []` 
+      resposta: `error de model: ${error.message} ||| []` 
     });
   }
 };

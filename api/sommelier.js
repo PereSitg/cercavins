@@ -17,20 +17,18 @@ module.exports = async (req, res) => {
   try {
     const { pregunta, idioma } = req.body;
     
-    // Mantenim els 50 vins com havies demanat
     const snapshot = await db.collection('cercavins').limit(50).get();
     const celler = [];
     snapshot.forEach(doc => {
       const d = doc.data();
       if (d.nom && d.imatge) {
-        celler.push({ n: d.nom.toLowerCase(), i: d.imatge, t: d.tipus || "" });
+        celler.push({ n: d.nom, i: d.imatge, t: d.tipus || "" });
       }
     });
 
     const langMap = { 'ca': 'CATALÀ', 'es': 'CASTELLANO', 'en': 'ENGLISH', 'fr': 'FRANÇAIS' };
     const idiomaRes = langMap[idioma?.slice(0, 2)] || 'CATALÀ';
 
-    // 2. CRIDA A LLAMA 3.3 70B (El model actualitzat i potent)
     const groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -42,11 +40,16 @@ module.exports = async (req, res) => {
         messages: [
           {
             role: 'system',
-            content: `ets un sommelier professional. respon en ${idiomaRes}. tot en minúscules. noms de vins: <span class="nom-vi-destacat">nom del vi</span>. tria 3 vins. format: text ||| [{"nom":"...","imatge":"..."}]`
+            content: `Ets un sommelier professional. Respon en ${idiomaRes}. 
+            NORMES DE FORMAT:
+            1. Utilitza majúscules a l'inici de frase i després de punt.
+            2. Noms de vins: <span class="nom-vi-destacat">nom del vi</span> (respecta les majúscules pròpies del nom).
+            3. Tria 3 vins del catàleg que millor maridin.
+            4. FORMAT DE SORTIDA: Text explicatiu ||| [{"nom":"...","imatge":"..."}]`
           },
           {
             role: 'user',
-            content: `celler: ${JSON.stringify(celler)}. pregunta: ${pregunta}`
+            content: `Celler: ${JSON.stringify(celler)}. Pregunta: ${pregunta}`
           }
         ],
         temperature: 0.3
@@ -54,10 +57,7 @@ module.exports = async (req, res) => {
     });
 
     const data = await groqResponse.json();
-    
-    if (data.error) {
-      throw new Error(data.error.message);
-    }
+    if (data.error) throw new Error(data.error.message);
 
     const respostaIA = data.choices[0].message.content;
 
@@ -66,9 +66,8 @@ module.exports = async (req, res) => {
     });
 
   } catch (error) {
-    console.error("LOG D'ERROR:", error.message);
     res.status(200).json({ 
-      resposta: `error de model: ${error.message} ||| []` 
+      resposta: `Error: ${error.message} ||| []` 
     });
   }
 };

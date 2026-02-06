@@ -17,20 +17,21 @@ module.exports = async (req, res) => {
   try {
     const { pregunta, idioma } = req.body;
     
-    // 1. LIMITACIÓ ESTRICTA A 15 DOCUMENTS (Per evitar saturar Groq)
-    const snapshot = await db.collection('cercavins').limit(15).get();
+    // 1. RECUPEREM 50 VINS (Sense filtres per evitar errors d'índex)
+    const snapshot = await db.collection('cercavins').limit(50).get();
     const celler = [];
     snapshot.forEach(doc => {
       const d = doc.data();
       if (d.nom && d.imatge) {
-        celler.push({ n: d.nom.toLowerCase(), i: d.imatge });
+        // Mantenim l'objecte minimalista per no saturar els tokens
+        celler.push({ n: d.nom.toLowerCase(), i: d.imatge, t: d.tipus || "" });
       }
     });
 
     const langMap = { 'ca': 'CATALÀ', 'es': 'CASTELLANO', 'en': 'ENGLISH', 'fr': 'FRANÇAIS' };
     const idiomaRes = langMap[idioma?.slice(0, 2)] || 'CATALÀ';
 
-    // 2. PROMPT MINIMALISTA (Menys text = resposta més ràpida i sense errors)
+    // 2. CRIDA A LLAMA 3 70B (El model potent)
     const groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -38,34 +39,42 @@ module.exports = async (req, res) => {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        model: 'llama3-8b-8192',
+        model: 'llama3-70b-8192', 
         messages: [
           {
             role: 'system',
-            content: `sommelier professional en ${idiomaRes}. respon tot en minúscules. usa <span class="nom-vi-destacat">per als noms</span>. format: text ||| [{"nom":"...","imatge":"..."}]`
+            content: `Ets un sommelier expert. Respon en ${idiomaRes}. 
+            NORMES:
+            1. Tot en minúscules.
+            2. Noms de vins: <span class="nom-vi-destacat">nom</span>.
+            3. Tria els 3 millors vins del catàleg segons la petició.
+            4. FORMAT: text explicatiu ||| [{"nom":"...","imatge":"..."}]`
           },
           {
             role: 'user',
-            content: `vins: ${JSON.stringify(celler)}. pregunta: ${pregunta}`
+            content: `Celler: ${JSON.stringify(celler)}. Pregunta: ${pregunta}`
           }
         ],
-        temperature: 0.1 // Més precisió, menys "creativitat" que pugui trencar el format
+        temperature: 0.3 // Baixa temperatura per mantenir el format rígid
       })
     });
 
     const data = await groqResponse.json();
     
-    // Verificació de seguretat
-    if (!data.choices || !data.choices[0]) {
-      return res.status(200).json({ resposta: "la ia està saturada. prova de nou en un segon. ||| []" });
+    if (data.error) {
+      throw new Error(data.error.message);
     }
 
     const respostaIA = data.choices[0].message.content;
+
     res.status(200).json({
       resposta: respostaIA.includes('|||') ? respostaIA : `${respostaIA} ||| []`
     });
 
   } catch (error) {
-    res.status(200).json({ resposta: `error: ${error.message} ||| []` });
+    console.error("LOG D'ERROR:", error.message);
+    res.status(200).json({ 
+      resposta: `el sommelier (70b) diu: ${error.message} ||| []` 
+    });
   }
 };

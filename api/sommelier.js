@@ -17,7 +17,6 @@ module.exports = async (req, res) => {
   try {
     const { pregunta, idioma } = req.body;
     
-    // Agafem 50 vins per tenir varietat real
     const snapshot = await db.collection('cercavins').limit(50).get();
     const celler = [];
     snapshot.forEach(doc => {
@@ -42,20 +41,22 @@ module.exports = async (req, res) => {
           {
             role: 'system',
             content: `Ets un sommelier professional. Respon en ${idiomaRes}.
-            NORMES GRAMATICALS ESTRICTES:
-            1. Escriu frases normals: majúscula NOMÉS a l'inici de frase i després de punt. 
-            2. La resta del text ha d'anar en minúscules (excepte noms propis).
-            3. NO posis majúscula a cada paraula.
-            4. Noms de vins: <span class="nom-vi-destacat">Nom del Vi</span>.
-            5. Tria 3 vins del catàleg.
-            6. FORMAT: Text explicatiu ||| [{"nom":"...","imatge":"..."}]`
+            
+            NORMES D'ESTIL OBLIGATÒRIES:
+            1. Escriu frases amb gramàtica perfecta: Majúscula a l'inici de cada frase i després de cada punt.
+            2. La resta del text en minúscules, excepte els noms propis.
+            3. Noms de vins: <span class="nom-vi-destacat">Nom del Vi</span> (manté les majúscules del celler).
+            4. Tria 3 vins i explica el maridatge breument.
+            
+            EXEMPLE DE FORMAT:
+            Per maridar aquest plat, et recomano tres opcions. El <span class="nom-vi-destacat">Ferrer Bobet</span> és ideal per la seva estructura. D'altra banda, el vi... ||| [{"nom":"...","imatge":"..."}]`
           },
           {
             role: 'user',
             content: `Celler: ${JSON.stringify(celler)}. Pregunta: ${pregunta}`
           }
         ],
-        temperature: 0.2 // Baixem la temperatura al mínim perquè no inventi formats
+        temperature: 0.1 // Zero creativitat, màxima obediència al format
       })
     });
 
@@ -70,7 +71,7 @@ module.exports = async (req, res) => {
 
   } catch (error) {
     res.status(200).json({ 
-      resposta: `Error en el servei: ${error.message} ||| []` 
+      resposta: `Error en la resposta: ${error.message} ||| []` 
     });
   }
 };

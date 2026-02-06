@@ -16,13 +16,12 @@ module.exports = async (req, res) => {
 
   try {
     const { pregunta, idioma } = req.body;
-    
     const snapshot = await db.collection('cercavins').limit(50).get();
     const celler = [];
     snapshot.forEach(doc => {
       const d = doc.data();
       if (d.nom && d.imatge) {
-        celler.push({ n: d.nom, i: d.imatge, t: d.tipus || "" });
+        celler.push({ nom: d.nom, imatge: d.imatge, tipus: d.tipus || "" });
       }
     });
 
@@ -37,41 +36,39 @@ module.exports = async (req, res) => {
       },
       body: JSON.stringify({
         model: 'llama-3.3-70b-versatile', 
+        response_format: { type: "json_object" }, // FORCEM MODE JSON
         messages: [
           {
             role: 'system',
-            content: `Ets un sommelier professional. Respon en ${idiomaRes}.
+            content: `Ets un sommelier. Respon SEMPRE en format JSON.
+            Idioma: ${idiomaRes}.
+            Normes de text: Frases amb majúscula inicial i després de punt. No posis majúscula a cada paraula.
+            Noms de vins: Dins del text, posa els noms així: <span class="nom-vi-destacat">Nom del Vi</span>.
             
-            NORMES D'ESTIL OBLIGATÒRIES:
-            1. Escriu frases amb gramàtica perfecta: Majúscula a l'inici de cada frase i després de cada punt.
-            2. La resta del text en minúscules, excepte els noms propis.
-            3. Noms de vins: <span class="nom-vi-destacat">Nom del Vi</span> (manté les majúscules del celler).
-            4. Tria 3 vins i explica el maridatge breument.
-            
-            EXEMPLE DE FORMAT:
-            Per maridar aquest plat, et recomano tres opcions. El <span class="nom-vi-destacat">Ferrer Bobet</span> és ideal per la seva estructura. D'altra banda, el vi... ||| [{"nom":"...","imatge":"..."}]`
+            Estructura del JSON a retornar:
+            {
+              "explicacio": "Text del sommelier aquí...",
+              "vins_triats": [{"nom": "Nom 1", "imatge": "URL 1"}, {"nom": "Nom 2", "imatge": "URL 2"}]
+            }`
           },
           {
             role: 'user',
             content: `Celler: ${JSON.stringify(celler)}. Pregunta: ${pregunta}`
           }
         ],
-        temperature: 0.1 // Zero creativitat, màxima obediència al format
+        temperature: 0.1
       })
     });
 
     const data = await groqResponse.json();
-    if (data.error) throw new Error(data.error.message);
+    const contingut = JSON.parse(data.choices[0].message.content);
 
-    const respostaIA = data.choices[0].message.content;
+    // Reconstruïm el format que espera el teu frontend: "text ||| json"
+    const respostaFinal = `${contingut.explicacio} ||| ${JSON.stringify(contingut.vins_triats)}`;
 
-    res.status(200).json({
-      resposta: respostaIA.includes('|||') ? respostaIA : `${respostaIA} ||| []`
-    });
+    res.status(200).json({ resposta: respostaFinal });
 
   } catch (error) {
-    res.status(200).json({ 
-      resposta: `Error en la resposta: ${error.message} ||| []` 
-    });
+    res.status(200).json({ resposta: `Error: ${error.message} ||| []` });
   }
 };

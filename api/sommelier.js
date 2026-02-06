@@ -5,8 +5,9 @@ module.exports = async (req, res) => {
 
   try {
     const { pregunta, idioma } = req.body;
-    const p = pregunta.toLowerCase();
+    const p = (pregunta || "").toLowerCase();
 
+    // Idiomes
     const langMap = { 'ca': 'CATALÀ', 'es': 'CASTELLANO', 'en': 'ENGLISH', 'fr': 'FRANÇAIS' };
     const idiomaRes = langMap[idioma?.slice(0,2)] || 'CATALÀ';
 
@@ -15,32 +16,37 @@ module.exports = async (req, res) => {
         credential: admin.credential.cert({
           projectId: process.env.FIREBASE_PROJECT_ID,
           clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-          privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n').trim(),
+          privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
         }),
       });
     }
     
     const db = admin.firestore();
     
-    // 1. FILTRE RADICAL (Només 15 vins per garantir velocitat de llamp)
+    // LA SOLUCIÓ FINAL: Només demanem 8 vins. 
+    // És una quantitat tan petita que Firebase la serveix en mil·lisegons.
     let query = db.collection('cercavins');
-    if (p.includes('blanc') || p.includes('peix')) {
-      query = query.where('tipus', '==', 'Blanc').limit(15);
+    
+    if (p.includes('blanc') || p.includes('peix') || p.includes('percebe')) {
+      query = query.where('tipus', '==', 'Blanc');
     } else if (p.includes('negre') || p.includes('carn')) {
-      query = query.where('tipus', '==', 'Negre').limit(15);
-    } else {
-      query = query.limit(15);
+      query = query.where('tipus', '==', 'Negre');
     }
-
-    const snapshot = await query.get();
+    
+    const snapshot = await query.limit(8).get();
     let celler = [];
     snapshot.forEach(doc => {
         const d = doc.data();
-        // Enviem el mínim text possible
-        celler.push({ n: d.nom.toLowerCase(), i: d.imatge });
+        if (d.nom && d.imatge) {
+          celler.push({ n: d.nom.toLowerCase(), i: d.imatge });
+        }
     });
 
-    // 2. CRIDA A LA IA AMB EL MODEL MÉS RÀPID DEL MÓN
+    // Si Firebase està buit per la quota, no cridem a la IA i avisem
+    if (celler.length === 0) {
+      return res.status(200).json({ resposta: "el celler està tancat per descans setmanal (quota esgotada). torna demà! ||| []" });
+    }
+
     const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -52,13 +58,9 @@ module.exports = async (req, res) => {
         messages: [
           { 
             role: 'system', 
-            content: `Sommelier. Respon en ${idiomaRes}. 
-            1. TOT MINÚSCULES. 
-            2. Noms: <span class="nom-vi-destacat">nom</span>. 
-            3. 3 vins del catàleg. 
-            4. FORMAT: Text ||| [{"nom":"...","imatge":"..."}]`
+            content: `sommelier. respon en ${idiomaRes}. tot minúscules. noms en groc: <span class="nom-vi-destacat">nom</span>. tria 2-3 vins. format: text ||| [{"nom":"...","imatge":"..."}]`
           },
-          { role: 'user', content: `Vins: ${JSON.stringify(celler)}. Pregunta: ${pregunta}` }
+          { role: 'user', content: `vins: ${JSON.stringify(celler)}. pregunta: ${pregunta}` }
         ],
         temperature: 0.2
       })
@@ -72,9 +74,8 @@ module.exports = async (req, res) => {
     });
 
   } catch (error) {
-    // Si falla, enviem un missatge més informatiu per saber què passa
     res.status(200).json({ 
-      resposta: "el celler està tardant massa a respondre. prova de preguntar només per 'vins blancs' o 'vins negres'. ||| []" 
+      resposta: "error de connexió. probablament la quota de firebase s'ha acabat. ||| []" 
     });
   }
 };

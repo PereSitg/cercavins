@@ -16,52 +16,51 @@ export default async function handler(req, res) {
   if (req.query.clau !== 'pere') return res.status(401).send('No autoritzat');
 
   try {
-    const totalSnapshot = await db.collection('cercavins').count().get();
-    const totalVins = totalSnapshot.data().count;
-
-    // Busquem 100 vins on el preu NO sigui un número
-    // Agafem una mostra per veure què hi ha realment
-    const snapshot = await db.collection('cercavins').limit(100).get();
+    // 1. Busquem 300 vins (pugem el límit per anar més ràpid) que NO siguin números
+    const snapshot = await db.collection('cercavins')
+      .limit(300)
+      .get();
 
     const batch = db.batch();
-    let preusModificats = 0;
-    let mostresErrors = [];
+    let modificats = 0;
+    let buits = 0;
 
     snapshot.forEach(doc => {
       const data = doc.data();
       
-      // Si el preu és un String O si és un camp buit o indefinit
+      // Només processem si el preu NO és un número
       if (typeof data.preu !== 'number') {
-        let preuOriginal = data.preu ? String(data.preu) : "";
+        let preuOriginal = data.preu ? String(data.preu).trim() : "";
         
-        // Netegem a fons
-        let preuNet = preuOriginal
-          .replace('€', '')
-          .replace(/[^\d,.]/g, '') // Treiem tot el que no sigui número, coma o punt
-          .replace(',', '.')
-          .trim();
-
-        const preuNumeric = parseFloat(preuNet);
-
-        if (!isNaN(preuNumeric)) {
-          batch.update(doc.ref, { preu: preuNumeric });
-          preusModificats++;
+        if (preuOriginal === "") {
+          // Si està buit, li posem un 0 perquè deixi de sortir a la llista de "pendents"
+          batch.update(doc.ref, { preu: 0 });
+          buits++;
         } else {
-          // Si tot i així no podem, guardem la mostra per saber què és
-          mostresErrors.push({ id: doc.id, valor_original: preuOriginal });
+          // Si té text, el convertim
+          let preuNet = preuOriginal
+            .replace('€', '')
+            .replace(/[^\d,.]/g, '')
+            .replace(',', '.')
+            .trim();
+
+          const preuNumeric = parseFloat(preuNet);
+          batch.update(doc.ref, { preu: isNaN(preuNumeric) ? 0 : preuNumeric });
+          modificats++;
         }
       }
     });
 
-    if (preusModificats > 0) {
+    if (modificats > 0 || buits > 0) {
       await batch.commit();
     }
 
     return res.status(200).json({
-      missatge: preusModificats > 0 ? "🚀 S'han convertit alguns preus!" : "⚠️ No s'ha pogut convertir res en aquest lot.",
-      total_vins_celler: totalVins,
-      preus_convertits_ara: preusModificats,
-      vins_amb_problemes: mostresErrors.slice(0, 5) // Ens ensenya els 5 primers errors
+      missatge: "🧹 Neteja en curs...",
+      vins_amb_preu_convertit: modificats,
+      vins_buits_marcats_com_zero: buits,
+      total_processats_en_aquest_clic: modificats + buits,
+      nota: "Si aquest número és alt, segueix refrescant fins arribar al final dels 8.348 vins."
     });
 
   } catch (error) {

@@ -16,27 +16,39 @@ export default async function handler(req, res) {
   if (req.query.clau !== 'pere') return res.status(401).send('No autoritzat');
 
   try {
-    // 1. Busquem 15 vins que estiguin malament:
-    // - O diuen "Vila Viniteca"
-    // - O contenen el text d'error de la IA ("instrucciones")
+    // 1. Generem un ID aleatori per saltar a qualsevol punt de la BBDD
+    const randomId = db.collection('cercavins').doc().id;
+    
+    // 2. Busquem 50 vins a partir d'aquest punt aleatori
     const snapshot = await db.collection('cercavins')
-      .limit(15)
+      .where(admin.firestore.FieldPath.documentId(), '>=', randomId)
+      .limit(50)
       .get();
 
     const batch = db.batch();
     let historial = [];
 
-    // Filtrem manualment per trobar els que necessiten reparació
+    // 3. FILTRE DE DETECCIÓ D'ERRORS
     const vinsPerReparar = snapshot.docs.filter(doc => {
-      const doText = doc.data().do || "";
-      return doText === "Vila Viniteca" || doText.includes("instrucciones") || doText.includes("respuesta");
+      const doText = String(doc.data().do || "");
+      const esVila = doText.includes("Vila Viniteca");
+      const esErrorIA = doText.includes("instrucciones") || doText.includes("respuesta") || doText.includes("correcta");
+      const esMassaLlarg = doText.length > 35; // Una DO normal no sol ser tan llarga
+      
+      return esVila || esErrorIA || esMassaLlarg;
     });
 
     if (vinsPerReparar.length === 0) {
-      return res.status(200).json({ missatge: "✅ Tot net! No s'han trobat errors de 'Vila Viniteca' ni de la IA en aquesta mostra." });
+      return res.status(200).json({ 
+        missatge: "🔍 En aquesta zona aleatòria tot sembla correcte. Torna a refrescar per buscar en una altra part de la base de dades.",
+        mostra_analitzada: snapshot.size
+      });
     }
 
-    for (const doc of vinsPerReparar) {
+    // 4. REPARACIÓ AMB IA (limitada a 10 per tanda per evitar timeouts)
+    const top10 = vinsPerReparar.slice(0, 10);
+
+    for (const doc of top10) {
       const d = doc.data();
       
       const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -50,7 +62,7 @@ export default async function handler(req, res) {
           messages: [
             { 
               role: 'system', 
-              content: "Ets un sommelier expert. Respon EXCLUSIVAMENT amb el nom de la Denominació d'Origen o Regió. NO donis explicacions. NO diguis si tens instruccions o no. Exemple: 'Rioja', 'Borgonya', 'Mendoza'." 
+              content: "Ets un sommelier expert. Respon EXCLUSIVAMENT amb el nom de la DO o Regió. Màxim 3 paraules. NO donis cap explicació. Exemple: 'Rioja', 'Ribera del Duero', 'Borgonya'." 
             },
             { role: 'user', content: `DO del vi: ${d.nom}` }
           ],
@@ -60,19 +72,17 @@ export default async function handler(req, res) {
 
       const aiData = await groqRes.json();
       let doNeta = aiData.choices?.[0]?.message?.content?.trim() || "DO Desconeguda";
-      
-      // Neteja extra per si la IA encara posa punts o cometes
       doNeta = doNeta.replace(/\./g, '').replace(/"/g, '');
 
       batch.update(doc.ref, { do: doNeta });
-      historial.push({ vi: d.nom, do_reparada: doNeta });
+      historial.push({ vi: d.nom, do_antiga: d.do, do_nova: doNeta });
     }
 
     await batch.commit();
 
     return res.status(200).json({
-      status: "Reparació completada",
-      vins_arreglats: historial.length,
+      status: "🧼 Neteja aleatòria completada",
+      vins_reparats: historial.length,
       detalls: historial
     });
 

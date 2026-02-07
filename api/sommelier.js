@@ -1,6 +1,5 @@
 const admin = require('firebase-admin');
 
-// 1. INICIALITZACIÓ (Fora de l'handler per reutilitzar la connexió)
 if (!admin.apps.length) {
   admin.initializeApp({
     credential: admin.credential.cert({
@@ -11,7 +10,6 @@ if (!admin.apps.length) {
   });
 }
 
-// DEFINIM DB AQUÍ PERQUÈ ESTIGUI DISPONIBLE A TOT EL FITXER
 const db = admin.firestore();
 
 module.exports = async (req, res) => {
@@ -19,47 +17,31 @@ module.exports = async (req, res) => {
 
   try {
     const { pregunta, idioma } = req.body;
-    const p = pregunta.toLowerCase();
 
-    // 2. CERCA DE VINS ASSEQUIBLES (Ara que ja són Numbers!)
-    // Busquem vins entre 7 i 20 euros
+    // 1. Agafem vins assequibles
     const assequiblesSnapshot = await db.collection('cercavins')
       .where('preu', '>=', 7)
       .where('preu', '<=', 20)
-      .limit(10)
+      .limit(8)
       .get();
 
-    let vinsAssequibles = [];
+    let vinsContext = [];
     assequiblesSnapshot.forEach(doc => {
       const d = doc.data();
-      vinsAssequibles.push({ 
-        nom: d.nom, 
-        imatge: d.imatge, 
-        do: d.do || "DO", 
-        preu: d.preu, 
-        perfil: "economica" 
-      });
+      vinsContext.push({ nom: d.nom, do: d.do || "DO", preu: d.preu, imatge: d.imatge, perfil: "economica" });
     });
 
-    // 3. CERCA GENERAL (Per donar varietat)
-    const snapshot = await db.collection('cercavins').limit(20).get();
-    let cellerGeneral = [];
+    // 2. Agafem uns quants més generals
+    const snapshot = await db.collection('cercavins').limit(12).get();
     snapshot.forEach(doc => {
       const d = doc.data();
-      cellerGeneral.push({ 
-        nom: d.nom, 
-        imatge: d.imatge, 
-        do: d.do || "DO", 
-        preu: d.preu 
-      });
+      vinsContext.push({ nom: d.nom, do: d.do || "DO", preu: d.preu, imatge: d.imatge });
     });
-
-    const contextTotal = [...vinsAssequibles, ...cellerGeneral];
 
     const langMap = { 'ca': 'CATALÀ', 'es': 'CASTELLANO', 'en': 'ENGLISH' };
     const idiomaRes = langMap[idioma?.slice(0, 2)] || 'CATALÀ';
 
-    // 4. CRIDA A GROQ
+    // 3. Crida a Groq amb protecció
     const groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -72,30 +54,33 @@ module.exports = async (req, res) => {
         messages: [
           {
             role: 'system',
-            content: `Ets un sommelier expert. Idioma: ${idiomaRes}.
-            - Tria 3 vins del context proporcionat.
-            - El tercer vi ha de ser un dels de perfil 'economica'.
-            - NO posis majúscula a cada paraula.
-            - NO mencionis preus numèrics.
-            - Usa <span class="nom-vi-destacat"> pel nom dels vins.`
+            content: `Ets un sommelier expert. Idioma: ${idiomaRes}. Respon en JSON amb: {"explicacio": "...", "vins_triats": [{"nom": "...", "imatge": "..."}]}. Tria 3 vins, un d'ells 'economica'. No posis preus.`
           },
           {
             role: 'user',
-            content: `Vins: ${JSON.stringify(contextTotal)}. Pregunta: ${pregunta}`
+            content: `Vins: ${JSON.stringify(vinsContext)}. Pregunta: ${pregunta}`
           }
-        ],
-        temperature: 0.5
+        ]
       })
     });
 
     const data = await groqResponse.json();
-    const contingut = JSON.parse(data.choices[0].message.content);
 
-    // Format final per al teu frontend
+    // --- PROTECCIÓ CONTRA L'ERROR 'UNDEFINED 0' ---
+    if (!data.choices || !data.choices[0]) {
+      console.error("Error de Groq:", data);
+      throw new Error(data.error?.message || "La IA no ha tornat resultats (possible límit de quota)");
+    }
+
+    const contingut = JSON.parse(data.choices[0].message.content);
     const respostaFinal = `${contingut.explicacio} ||| ${JSON.stringify(contingut.vins_triats)}`;
+    
     res.status(200).json({ resposta: respostaFinal });
 
   } catch (error) {
-    res.status(200).json({ resposta: `Error: ${error.message} ||| []` });
+    console.error("Error en el handler:", error);
+    res.status(200).json({ 
+      resposta: `Ho sento Pere, tinc un petit embús al celler: ${error.message} ||| []` 
+    });
   }
 };

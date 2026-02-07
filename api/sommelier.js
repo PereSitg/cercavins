@@ -22,14 +22,16 @@ module.exports = async (req, res) => {
     const codi = (idioma || 'ca').toLowerCase().slice(0, 2);
     const idiomaReal = langMap[codi] || 'CATALÀ';
 
-    // 1. BUSCAR EL VI MENCIONAT A LA PREGUNTA (Per mostrar la foto)
+    // 1. BUSCAR EL VI DE LA PREGUNTA (Millorat amb normalització)
     let viPrincipal = null;
-    const paraulesCerca = pregunta.split(' ').filter(p => p.length > 3);
-    if (paraulesCerca.length > 0) {
-      // Busquem per la primera paraula significativa (ex: "Cune")
+    const paraules = pregunta.split(/\s+/).filter(p => p.length > 3);
+    
+    if (paraules.length > 0) {
+      // Intentem buscar el vi (Cune, Vega Sicilia, etc.)
+      const nomCerca = paraules[0].charAt(0).toUpperCase() + paraules[0].slice(1).toLowerCase();
       const cercaSnap = await db.collection('cercavins')
-        .where('nom', '>=', paraulesCerca[0])
-        .where('nom', '<=', paraulesCerca[0] + '\uf8ff')
+        .where('nom', '>=', nomCerca)
+        .where('nom', '<=', nomCerca + '\uf8ff')
         .limit(1)
         .get();
       
@@ -39,10 +41,10 @@ module.exports = async (req, res) => {
       }
     }
 
-    // 2. RECUPERACIÓ DE RECOMANACIONS
+    // 2. RECUPERACIÓ DE VINS PER A RECOMANAR
     const [premSnap, econSnap] = await Promise.all([
-      db.collection('cercavins').where('preu', '>', 35).limit(40).get(),
-      db.collection('cercavins').where('preu', '>=', 7).where('preu', '<=', 18).limit(40).get()
+      db.collection('cercavins').where('preu', '>', 35).limit(50).get(),
+      db.collection('cercavins').where('preu', '>=', 7).where('preu', '<=', 18).limit(50).get()
     ]);
 
     const shuffle = (array) => array.sort(() => Math.random() - 0.5);
@@ -59,20 +61,20 @@ module.exports = async (req, res) => {
     const seleccioPremium = netejarVins(premSnap);
     const seleccioEcon = netejarVins(econSnap);
 
-    // 3. PROMPT AMB FORMAT GROC I RECOMANACIONS
-    const promptSystem = `Ets un Sommelier d'elit. Respon EXCLUSIVAMENT en ${idiomaReal}.
+    // 3. PROMPT AMB INSTRUCCIONS DE SEPARACIÓ ÚNIQUES
+    const promptSystem = `Eres un Sumiller experto. Responde OBLIGATORIAMENTE en ${idiomaReal}.
     
-    NORMES VISUALS:
-    1. Usa <span class="nom-vi-destacat"> pel nom del vi.
-    2. Usa <span class="text-destacat-groc"> per a: Denominacions d'Origen (DO), varietats de raïm i noms propis de cellers.
+    ESTILO VISUAL:
+    - Nombres de vinos: <span class="nom-vi-destacat">Nombre</span>.
+    - DO, Uvas y Bodegas: <span class="text-destacat-groc">Dato</span>.
     
-    NORMES DE CONTINGUT:
-    1. Si l'usuari pregunta per MARISC o PEIX, selecciona només vins BLANCS o ESCUMOSOS. PROHIBIT vins negres.
-    2. L'explicació ha de ser LLARGA i MAGISTRAL (mínim 300 paraules).
-    3. Tria 2 de ALTA_GAMA i 1 de OPCIÓ_ASSEQUIBLE.
-    4. Descriu celler, varietat i maridatge per a cada vi.
+    CONTENIDO:
+    - Si preguntan por marisco/pescado, selecciona BLANCOS/ESPUMOSOS. PROHIBIDO tintos.
+    - Explicación MAGISTRAL y MUY LARGA (mínimo 300 palabras).
+    - Elige 2 vinos de ALTA_GAMA y 1 de OPCIÓN_ASSEQUIBLE.
     
-    RESPON NOMÉS AMB AQUEST JSON: {"explicacio": "...", "vins_triats": [{"nom": "...", "imatge": "..."}]}`;
+    IMPORTANTE: Responde con este JSON EXACTO:
+    {"explicacion": "Texto largo aquí...", "vins_triats": [{"nom": "...", "imatge": "..."}]}`;
 
     const groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
@@ -85,31 +87,31 @@ module.exports = async (req, res) => {
         response_format: { type: "json_object" },
         messages: [
           { role: 'system', content: promptSystem },
-          { role: 'user', content: `Idioma: ${idiomaReal}. Pregunta: ${pregunta}. ALTA_GAMA: ${JSON.stringify(seleccioPremium)}. OPCIÓ_ASSEQUIBLE: ${JSON.stringify(seleccioEcon)}.` }
+          { role: 'user', content: `Idioma: ${idiomaReal}. Pregunta: ${pregunta}. ALTA_GAMA: ${JSON.stringify(seleccioPremium)}. OPCIÓN_ASSEQUIBLE: ${JSON.stringify(seleccioEcon)}.` }
         ],
-        temperature: 0.4
+        temperature: 0.3 // Més baix per evitar errors de format
       })
     });
 
     const data = await groqResponse.json();
-    if (!data?.choices?.[0]?.message?.content) throw new Error("IA Error");
-
     const contingut = JSON.parse(data.choices[0].message.content);
     
-    // Ajuntem el vi de la pregunta amb els recomanats
+    // Ajuntem vi preguntat + recomanacions
     let vinsFinals = contingut.vins_triats || [];
     if (viPrincipal) {
-      vinsFinals.unshift(viPrincipal); // El vi preguntat apareix primer
+      // Evitem duplicats si la IA ja l'ha triat
+      if (!vinsFinals.some(v => v.nom === viPrincipal.nom)) {
+        vinsFinals.unshift(viPrincipal);
+      }
     }
 
     const textFinal = contingut.explicacio || contingut.explicación || contingut.explanation;
 
+    // EL SEPARADOR CRÍTIC: El text i després el JSON de vins
     res.status(200).json({ resposta: `${textFinal} ||| ${JSON.stringify(vinsFinals)}` });
 
   } catch (error) {
-    console.error("Error Sommelier:", error);
-    res.status(200).json({ 
-      resposta: `Error en el celler: ${error.message} ||| []` 
-    });
+    console.error(error);
+    res.status(200).json({ resposta: `Error: ${error.message} ||| []` });
   }
 };

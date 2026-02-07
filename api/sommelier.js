@@ -18,30 +18,34 @@ module.exports = async (req, res) => {
   try {
     const { pregunta, idioma } = req.body;
 
-    // 1. Agafem vins assequibles
+    // 1. Preparem els dos grups de vins ben diferenciats
     const assequiblesSnapshot = await db.collection('cercavins')
       .where('preu', '>=', 7)
       .where('preu', '<=', 20)
-      .limit(8)
+      .limit(10)
       .get();
 
-    let vinsContext = [];
+    let grupEconòmic = [];
     assequiblesSnapshot.forEach(doc => {
       const d = doc.data();
-      vinsContext.push({ nom: d.nom, do: d.do || "DO", preu: d.preu, imatge: d.imatge, perfil: "economica" });
+      grupEconòmic.push({ nom: d.nom, do: d.do || "DO", preu: d.preu, imatge: d.imatge, categoria: "ECONÒMICA" });
     });
 
-    // 2. Agafem uns quants més generals
-    const snapshot = await db.collection('cercavins').limit(12).get();
-    snapshot.forEach(doc => {
+    const generalSnapshot = await db.collection('cercavins')
+      .where('preu', '>', 20) // Busquem vins de més de 20€ per contrastar
+      .limit(15)
+      .get();
+
+    let grupPremium = [];
+    generalSnapshot.forEach(doc => {
       const d = doc.data();
-      vinsContext.push({ nom: d.nom, do: d.do || "DO", preu: d.preu, imatge: d.imatge });
+      grupPremium.push({ nom: d.nom, do: d.do || "DO", preu: d.preu, imatge: d.imatge, categoria: "PREMIUM" });
     });
 
     const langMap = { 'ca': 'CATALÀ', 'es': 'CASTELLANO', 'en': 'ENGLISH' };
     const idiomaRes = langMap[idioma?.slice(0, 2)] || 'CATALÀ';
 
-    // 3. Crida a Groq amb protecció
+    // 2. Crida a Groq amb regles de selecció estrictes
     const groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -54,33 +58,36 @@ module.exports = async (req, res) => {
         messages: [
           {
             role: 'system',
-            content: `Ets un sommelier expert. Idioma: ${idiomaRes}. Respon en JSON amb: {"explicacio": "...", "vins_triats": [{"nom": "...", "imatge": "..."}]}. Tria 3 vins, un d'ells 'economica'. No posis preus.`
+            content: `Ets un sommelier de prestigi. Idioma: ${idiomaRes}.
+            
+            REGLA D'OR PER LA TRIA DE VINS:
+            - Has de triar exactament 3 vins.
+            - Els 2 primers vins han de ser de la categoria 'PREMIUM'. Són vins especials i complexos.
+            - El 3er vi ha de ser de la categoria 'ECONÒMICA'. Presenta'l com una troballa amb una relació qualitat-preu immillorable.
+            
+            ESTIL DE RESPOSTA:
+            - Escriu una explicació detallada i passional per a cada vi (un paràgraf per vi).
+            - No diguis el preu ni la paraula "barat". Usa termes com "assequible", "excel·lent relació qualitat-preu" o "opció amable".
+            - Usa <span class="nom-vi-destacat"> pel nom dels vins.
+            
+            FORMAT JSON: {"explicacio": "...", "vins_triats": [{"nom": "...", "imatge": "..."}]}`
           },
           {
             role: 'user',
-            content: `Vins: ${JSON.stringify(vinsContext)}. Pregunta: ${pregunta}`
+            content: `Vins PREMIUM: ${JSON.stringify(grupPremium)}. Vins ECONÒMICS: ${JSON.stringify(grupEconòmic)}. Pregunta: ${pregunta}`
           }
-        ]
+        ],
+        temperature: 0.6
       })
     });
 
     const data = await groqResponse.json();
-
-    // --- PROTECCIÓ CONTRA L'ERROR 'UNDEFINED 0' ---
-    if (!data.choices || !data.choices[0]) {
-      console.error("Error de Groq:", data);
-      throw new Error(data.error?.message || "La IA no ha tornat resultats (possible límit de quota)");
-    }
+    if (!data.choices || !data.choices[0]) throw new Error("Error en la resposta de la IA");
 
     const contingut = JSON.parse(data.choices[0].message.content);
-    const respostaFinal = `${contingut.explicacio} ||| ${JSON.stringify(contingut.vins_triats)}`;
-    
-    res.status(200).json({ resposta: respostaFinal });
+    res.status(200).json({ resposta: `${contingut.explicacio} ||| ${JSON.stringify(contingut.vins_triats)}` });
 
   } catch (error) {
-    console.error("Error en el handler:", error);
-    res.status(200).json({ 
-      resposta: `Ho sento Pere, tinc un petit embús al celler: ${error.message} ||| []` 
-    });
+    res.status(200).json({ resposta: `Error: ${error.message} ||| []` });
   }
 };

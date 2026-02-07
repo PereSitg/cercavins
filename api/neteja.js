@@ -13,27 +13,24 @@ if (!admin.apps.length) {
 const db = admin.firestore();
 
 export default async function handler(req, res) {
-  // Seguretat per evitar que ningú més executi la neteja
   if (req.query.clau !== 'pere') return res.status(401).send('No autoritzat');
 
   try {
-    // 1. Busquem vins on la DO sigui "Vila Viniteca" o estigui buida
-    // Ho fem de 10 en 10 per no esgotar el temps d'execució de Vercel (max 10-15 segons)
+    // Pugem a 15 vins per aprofitar millor cada càrrega
     const snapshot = await db.collection('cercavins')
       .where('do', '==', 'Vila Viniteca')
-      .limit(10)
+      .limit(15) 
       .get();
 
     if (snapshot.empty) {
       return res.status(200).json({ 
-        missatge: "✅ No s'han trobat més vins amb la DO 'Vila Viniteca' en aquesta tanda." 
+        missatge: "✅ Ja no queden més vins amb la DO 'Vila Viniteca'!" 
       });
     }
 
     const batch = db.batch();
     let historial = [];
 
-    // 2. Iterem sobre els vins trobats i preguntem a la IA
     for (const doc of snapshot.docs) {
       const d = doc.data();
       
@@ -48,30 +45,35 @@ export default async function handler(req, res) {
           messages: [
             { 
               role: 'system', 
-              content: 'Ets un sommelier expert. Se t\'anomenarà un vi i només has de respondre amb el nom de la seva Denominació d\'Origen (DO). No posis frases, ni punts, ni "La DO és...". Només el nom.' 
+              content: `Ets un sommelier expert i rigorós. La teva missió és identificar la Denominació d'Origen (DO) exacta.
+              INSTRUCCIONS CRÍTIQUES:
+              1. Si el vi és de 'Comando G' o 'Reina de los Deseos', la DO és 'Vinos de Madrid'.
+              2. Si el vi és de 'Alemany i Corrió' o 'Sot Lefriec', la DO és 'Penedès'.
+              3. Si el vi és de 'Bellaserra', la DO és 'Catalunya'.
+              4. Si el vi és de 'Descendientes de J. Palacios' (La Faraona, Corullón), la DO és 'Bierzo'.
+              5. Per a vins francesos, especifica la zona: 'Borgonya', 'Champagne', 'Bordeus', etc.
+              6. RESPON NOMÉS EL NOM DE LA DO. No posis frases ni punts final.` 
             },
-            { role: 'user', content: `Quin és el nom de la DO del vi: ${d.nom}?` }
+            { role: 'user', content: `Quin és el nom de la DO oficial del vi: ${d.nom}?` }
           ],
-          temperature: 0.1 // Perquè sigui molt precís
+          temperature: 0.1
         })
       });
 
       const aiData = await groqRes.json();
       const doCorrecta = aiData.choices?.[0]?.message?.content?.trim() || "DO Desconeguda";
 
-      // 3. Preparem l'actualització
       batch.update(doc.ref, { do: doCorrecta });
       historial.push({ vi: d.nom, do_vella: d.do, do_nova: doCorrecta });
     }
 
-    // 4. Guardem tots els canvis de cop
     await batch.commit();
 
     return res.status(200).json({
       status: "Succés",
       vins_arreglats: historial.length,
       detalls: historial,
-      nota: "Torna a carregar la pàgina per arreglar 10 vins més."
+      nota: "Continua refrescant fins que el comptador arribi a 0."
     });
 
   } catch (error) {

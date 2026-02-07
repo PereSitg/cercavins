@@ -18,45 +18,43 @@ module.exports = async (req, res) => {
   try {
     const { pregunta, idioma } = req.body;
 
-    // 1. GESTIÓ D'IDIOMA (Ara detectant que estàs en Castellà)
+    // 1. DETERMINACIÓ DE L'IDIOMA
     const langMap = { 'ca': 'CATALÀ', 'es': 'CASTELLANO', 'en': 'ENGLISH', 'fr': 'FRANÇAIS' };
     const codi = (idioma || 'ca').toLowerCase().slice(0, 2);
     const idiomaReal = langMap[codi] || 'CATALÀ';
 
-    // 2. SELECCIÓ DE VINS MÉS INTEL·LIGENT
-    // Agafem una mostra més gran per assegurar que hi hagi varietat de colors
+    // 2. RECUPERACIÓ DE VINS (Diferenciació Alta Gama vs Assequibles)
     const [premSnap, econSnap] = await Promise.all([
-      db.collection('cercavins').where('preu', '>', 30).limit(50).get(),
-      db.collection('cercavins').where('preu', '>=', 7).where('preu', '<=', 18).limit(50).get()
+      db.collection('cercavins').where('preu', '>', 30).limit(40).get(),
+      db.collection('cercavins').where('preu', '>=', 7).where('preu', '<=', 18).limit(40).get()
     ]);
 
     const shuffle = (array) => array.sort(() => Math.random() - 0.5);
 
-    const processarSnap = (snap) => {
-      let llista = [];
-      snap.forEach(doc => {
-        const d = doc.data();
-        // Incloem el nom de la DO i el color si el tenim per ajudar la IA
-        llista.push({ nom: d.nom, do: d.do || "", imatge: d.imatge, preu: d.preu });
-      });
-      return shuffle(llista).slice(0, 15);
-    };
+    let vinsPremium = [];
+    premSnap.forEach(doc => {
+      const d = doc.data();
+      vinsPremium.push({ nom: d.nom, do: d.do || "DO", imatge: d.imatge, preu: d.preu });
+    });
 
-    const seleccioPremium = processarSnap(premSnap);
-    const seleccioEcon = processarSnap(econSnap);
+    let vinsEcon = [];
+    econSnap.forEach(doc => {
+      const d = doc.data();
+      vinsEcon.push({ nom: d.nom, do: d.do || "DO", imatge: d.imatge, preu: d.preu });
+    });
 
-    // 3. PROMPT DE SOMMELIER PROFESSIONAL
-    const promptSystem = `Eres un Sumiller de prestigio internacional. 
-    INSTRUCCIÓN DE IDIOMA: Responde obligatoriamente en ${idiomaReal}.
-    
-    TU MISIÓN:
-    1. Analiza la pregunta del usuario. Si pide marisco o pescado, elige vinos BLANCOS o ESPUMOSOS de las listas. Si pide carne, elige TINTOS.
-    2. Selecciona exactamente 3 vinos del contexto proporcionado:
-       - Los 2 primeros de la lista ALTA_GAMA.
-       - El 3º de la lista OPCIÓN_ECONÓMICA.
-    3. Para cada vino, escribe un párrafo extenso (mínimo 6 líneas) explicando el carácter del vino, su zona y por qué el maridaje es perfecto.
-    4. Usa un tono culto, apasionado y experto.
-    5. Formato: Usa <span class="nom-vi-destacat"> para el nombre de cada vino.`;
+    // Barregem i seleccionem una mostra
+    const seleccioPremium = shuffle(vinsPremium).slice(0, 12);
+    const seleccioEcon = shuffle(vinsEcon).slice(0, 10);
+
+    // 3. CRIDA A GROQ AMB VALIDACIÓ DE SEGURETAT
+    const promptSystem = `Eres un Sumiller experto. Responde OBLIGATORIAMENTE en ${idiomaReal}.
+    INSTRUCCIONES:
+    - Escribe una introducción larga y técnica sobre el maridaje.
+    - Elige 2 vinos de ALTA_GAMA y 1 de OPCIÓN_ECONÓMICA.
+    - Para cada vi, un párrafo detallado con notas de cata y por qué marida bien.
+    - Usa <span class="nom-vi-destacat"> para el nombre de cada vino.
+    - Formato JSON estricto: {"explicacio": "...", "vins_triats": [{"nom": "...", "imatge": "..."}]}`;
 
     const groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
@@ -69,26 +67,32 @@ module.exports = async (req, res) => {
         response_format: { type: "json_object" },
         messages: [
           { role: 'system', content: promptSystem },
-          { 
-            role: 'user', 
-            content: `RESPONDE EN ${idiomaReal}. Pregunta: ${pregunta}. 
-            ALTA_GAMA: ${JSON.stringify(seleccioPremium)}. 
-            OPCIÓN_ECONÓMICA: ${JSON.stringify(seleccioEcon)}.` 
-          }
+          { role: 'user', content: `Idioma: ${idiomaReal}. Pregunta: ${pregunta}. ALTA_GAMA: ${JSON.stringify(seleccioPremium)}. OPCIÓN_ECONÓMICA: ${JSON.stringify(seleccioEcon)}.` }
         ],
-        temperature: 0.6 // Temperatura moderada per mantenir el control del maridatge
+        temperature: 0.7
       })
     });
 
     const data = await groqResponse.json();
+
+    // --- PROTECCIÓ CONTRA L'ERROR 'UNDEFINED 0' ---
+    if (!data || !data.choices || !data.choices[0] || !data.choices[0].message) {
+      console.error("Error detallat de Groq:", data);
+      throw new Error("La IA no ha pogut processar la resposta en aquest moment.");
+    }
+
     const contingut = JSON.parse(data.choices[0].message.content);
     
-    const explicacio = contingut.explicacio || contingut.explicación || contingut.explanation;
-    const vins = contingut.vins_triats || contingut.vins || contingut.wines;
+    // Assegurem que agafem el text encara que la IA canviï la clau
+    const explicacioFinal = contingut.explicacio || contingut.explicación || contingut.explanation || "No s'ha pogut generar el text.";
+    const vinsFinals = contingut.vins_triats || contingut.vins || [];
 
-    res.status(200).json({ resposta: `${explicacio} ||| ${JSON.stringify(vins)}` });
+    res.status(200).json({ resposta: `${explicacioFinal} ||| ${JSON.stringify(vinsFinals)}` });
 
   } catch (error) {
-    res.status(200).json({ resposta: `Error: ${error.message} ||| []` });
+    console.error("Error Sommelier:", error);
+    res.status(200).json({ 
+      resposta: `Ho sento Pere, el sommelier està tastant vins i ha tingut un petit error: ${error.message} ||| []` 
+    });
   }
 };

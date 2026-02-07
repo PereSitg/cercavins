@@ -1,6 +1,6 @@
 import admin from 'firebase-admin';
 
-// Inicialitzem Firebase usant les variables d'entorn per seguretat
+// Inicialitzem Firebase usant les variables d'entorn
 if (!admin.apps.length) {
   admin.initializeApp({
     credential: admin.credential.cert({
@@ -12,85 +12,104 @@ if (!admin.apps.length) {
 }
 
 const db = admin.firestore();
-
-// LLEGIM LA CLAU DES DE VERCEL (Ja no la posem aquí en text)
 const GROQ_KEY = process.env.GROQ_API_KEY;
 
 export default async function handler(req, res) {
-  // SEGURETAT: Només tu pots executar-ho si poses ?clau=pere al final de la URL
+  // SEGURETAT: ?clau=pere
   if (req.query.clau !== 'pere') {
     return res.status(401).send('No autoritzat');
   }
 
-  // Verificació interna que la clau de Groq existeix a Vercel
-  if (!GROQ_KEY) {
-    return res.status(500).json({ error: "Falta la variable GROQ_API_KEY a Vercel" });
-  }
-
   try {
-    console.log("🍷 Iniciant batch de neteja...");
+    console.log("🧹 Iniciant procés de neteja i conversió de preus...");
 
-    // 1. Busquem 50 vins amb la DO errònia
-    const snapshot = await db.collection('cercavins')
-      .where('do', '==', 'Vila Viniteca')
-      .limit(50)
-      .get();
+    // Busquem 100 vins per processar en aquest lot
+    const snapshot = await db.collection('cercavins').limit(100).get();
 
     if (snapshot.empty) {
-      return res.status(200).json({ missatge: "✅ Ja no queden vins per arreglar!" });
+      return res.status(200).json({ missatge: "✅ El celler està buit!" });
     }
 
-    let llistaVins = "";
-    let ids = [];
+    const batch = db.batch();
+    let preusModificats = 0;
+    let vinsPerDOReparar = [];
 
     snapshot.forEach(doc => {
-      llistaVins += `- ${doc.data().nom}\n`;
-      ids.push({ id: doc.id, nom: doc.data().nom });
-    });
+      const data = doc.data();
+      let canvi = false;
+      let updates = {};
 
-    // 2. Preguntem a Groq les DO reals
-    const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${GROQ_KEY}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        model: 'llama-3.3-70b-versatile',
-        response_format: { type: "json_object" },
-        messages: [{
-          role: 'system',
-          content: 'Ets un sommelier expert. Retorna un JSON on les claus siguin els noms exactes i els valors les DO/Regions. Exemple: {"Nom": "Priorat"}'
-        }, {
-          role: 'user',
-          content: llistaVins
-        }]
-      })
-    });
+      // --- 1. CONVERSIÓ DE PREU (de String a Number) ---
+      if (typeof data.preu === 'string') {
+        let preuNet = data.preu
+          .replace('€', '')
+          .replace(/\s/g, '')
+          .replace(',', '.')
+          .trim();
+        
+        const preuNumeric = parseFloat(preuNet);
+        
+        if (!isNaN(preuNumeric)) {
+          updates.preu = preuNumeric;
+          preusModificats++;
+          canvi = true;
+        }
+      }
 
-    const data = await groqRes.json();
-    
-    if (data.error) throw new Error(data.error.message);
-    
-    const resultatsIA = JSON.parse(data.choices[0].message.content);
+      // --- 2. DETECCIO DE DO "VILA VINITECA" ---
+      if (data.do === 'Vila Viniteca') {
+        vinsPerDOReparar.push({ id: doc.id, nom: data.nom });
+      }
 
-    // 3. Actualitzem Firebase en un sol Batch
-    const batch = db.batch();
-    let comptador = 0;
-
-    ids.forEach(vi => {
-      const doReal = resultatsIA[vi.nom];
-      if (doReal) {
-        batch.update(db.collection('cercavins').doc(vi.id), { do: doReal });
-        comptador++;
+      if (canvi) {
+        batch.update(doc.ref, updates);
       }
     });
 
+    // --- 3. REPARACIÓ DE DO (Si n'hi ha) ---
+    let missatgeIA = "No s'han trobat DO per reparar en aquest lot.";
+    if (vinsPerDOReparar.length > 0 && GROQ_KEY) {
+      const llistaVins = vinsPerDOReparar.map(v => `- ${v.nom}`).join('\n');
+      
+      const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${GROQ_KEY}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          model: 'llama-3.3-70b-versatile',
+          response_format: { type: "json_object" },
+          messages: [{
+            role: 'system',
+            content: 'Ets un sommelier. Retorna un JSON amb els noms dels vins com a clau i la seva DO/Regió com a valor. Format: {"nom": "DO"}'
+          }, {
+            role: 'user',
+            content: llistaVins
+          }]
+        })
+      });
+
+      const dataIA = await groqRes.json();
+      const resultatsIA = JSON.parse(dataIA.choices[0].message.content);
+
+      vinsPerDOReparar.forEach(vi => {
+        const doReal = resultatsIA[vi.nom];
+        if (doReal) {
+          batch.update(db.collection('cercavins').doc(vi.id), { do: doReal });
+        }
+      });
+      missatgeIA = `S'ha demanat la DO de ${vinsPerDOReparar.length} vins a la IA.`;
+    }
+
+    // Executem tots els canvis (preus + DOs)
     await batch.commit();
 
     return res.status(200).json({
-      missatge: `🚀 S'han arreglat ${comptador} vins correctament.`,
-      vins: resultatsIA
+      missatge: "🚀 Lot processat amb èxit",
+      preus_convertits_a_numero: preusModificats,
+      do_reparades: vinsPerDOReparar.length,
+      detall_ia: missatgeIA
     });
 
   } catch (error) {

@@ -38,18 +38,23 @@ module.exports = async (req, res) => {
         }))
         .filter(v => v.do_real !== "Vila Viniteca" && v.do_real !== "Desconeguda")
         .sort(() => Math.random() - 0.5)
-        .slice(0, 5); // Enviem pocs vins per estalviar tokens
+        .slice(0, 5); 
     };
 
     const llistaAlta = filtrarVins(premSnap);
     const llistaEcon = filtrarVins(econSnap);
 
-    // 3. Crida a Groq amb el model INSTANT
+    // 3. PROMPT MILLORAT PER A FORMAT HTML ESTRICTE
     const promptSystem = `Ets un Sommelier d'elit. Respon en ${idiomaReal}. 
-    Fes una recomanació magistral d'unes 250 paraules. 
-    Tria exactament 3 vins del JSON (2 d'alta gama i 1 econòmic). 
-    Usa <span class="nom-vi-destacat"> pel nom i <span class="text-destacat-groc"> per la DO.
-    JSON OBLIGATORI: {"explicacio": "...", "vins_triats": [{"nom": "...", "imatge": "..."}]}`;
+    Escriu una recomanació magistral de unes 250 paraules. 
+    
+    REGLA D'OR DE FORMAT:
+    - Cada vegada que mencionis un VI, usa: <span class="nom-vi-destacat">NOM DEL VI</span>.
+    - Cada vegada que mencionis una DO, usa: <span class="text-destacat-groc">NOM DO</span>.
+    - EXEMPLE: "Et recomano el <span class="nom-vi-destacat">Vega Sicilia</span> de la <span class="text-destacat-groc">Ribera del Duero</span>."
+
+    Tria exactament 3 vins del JSON (2 alta gama, 1 econòmic).
+    JSON OBLIGATORI: {"explicacio": "Text amb els span HTML...", "vins_triats": [{"nom": "...", "imatge": "..."}]}`;
 
     const groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
@@ -69,14 +74,13 @@ module.exports = async (req, res) => {
     });
 
     const data = await groqResponse.json();
-    
     if (data.error) throw new Error(data.error.message);
 
     const contingut = JSON.parse(data.choices[0].message.content);
     
     // 4. Resposta Final
     const vinsFinals = (contingut.vins_triats || []).slice(0, 3);
-    const textFinal = contingut.explicacio || "Aquí tens la meva selecció per a tu...";
+    const textFinal = contingut.explicacio || "Aquí tens la meva selecció...";
 
     res.status(200).json({ 
       resposta: `${textFinal} ||| ${JSON.stringify(vinsFinals)}` 

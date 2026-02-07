@@ -18,7 +18,7 @@ module.exports = async (req, res) => {
   try {
     const { pregunta, idioma } = req.body;
 
-    // DETERMINACIÓ DE L'IDIOMA (Ara incloent el Francès)
+    // 1. DETERMINACIÓ DE L'IDIOMA (Català, Castellà, Anglès, Francès)
     const langMap = { 
       'ca': 'CATALÀ', 
       'es': 'CASTELLANO', 
@@ -28,31 +28,32 @@ module.exports = async (req, res) => {
     const codiIdioma = (idioma || 'ca').toLowerCase().slice(0, 2);
     const idiomaReal = langMap[codiIdioma] || 'CATALÀ';
 
-    // 1. Grups de vins (2 Premium + 1 Econòmic)
-    const assequiblesSnapshot = await db.collection('cercavins')
-      .where('preu', '>=', 7)
-      .where('preu', '<=', 20)
-      .limit(10)
-      .get();
+    // 2. RECUPERACIÓ DE VINS AMB VARIETAT (Randomize)
+    // Busquem una mostra gran per poder barrejar
+    const [econSnapshot, premSnapshot] = await Promise.all([
+      db.collection('cercavins').where('preu', '>=', 7).where('preu', '<=', 20).limit(40).get(),
+      db.collection('cercavins').where('preu', '>', 20).limit(40).get()
+    ]);
 
-    let grupEconòmic = [];
-    assequiblesSnapshot.forEach(doc => {
+    const barrejar = (array) => array.sort(() => Math.random() - 0.5);
+
+    let totsEcon = [];
+    econSnapshot.forEach(doc => {
       const d = doc.data();
-      grupEconòmic.push({ nom: d.nom, do: d.do || "DO", preu: d.preu, imatge: d.imatge, categoria: "ECONÒMICA" });
+      totsEcon.push({ nom: d.nom, do: d.do || "DO", preu: d.preu, imatge: d.imatge, categoria: "ECONÒMICA" });
     });
 
-    const generalSnapshot = await db.collection('cercavins')
-      .where('preu', '>', 20)
-      .limit(15)
-      .get();
-
-    let grupPremium = [];
-    generalSnapshot.forEach(doc => {
+    let totsPrem = [];
+    premSnapshot.forEach(doc => {
       const d = doc.data();
-      grupPremium.push({ nom: d.nom, do: d.do || "DO", preu: d.preu, imatge: d.imatge, categoria: "PREMIUM" });
+      totsPrem.push({ nom: d.nom, do: d.do || "DO", preu: d.preu, imatge: d.imatge, categoria: "PREMIUM" });
     });
 
-    // 2. Crida a Groq
+    // Triem 10 aleatoris de cada grup per enviar a la IA
+    const grupEconòmic = barrejar(totsEcon).slice(0, 10);
+    const grupPremium = barrejar(totsPrem).slice(0, 10);
+
+    // 3. CRIDA A GROQ
     const groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -65,32 +66,32 @@ module.exports = async (req, res) => {
         messages: [
           {
             role: 'system',
-            content: `STRICT RULE: YOU MUST RESPOND ENTIRELY IN ${idiomaReal}.
-            Ets un sommelier expert.
+            content: `IMPORTANT: MUST RESPOND ENTIRELY IN ${idiomaReal}.
+            Ets un sommelier expert i apassionat.
             
-            REGLA DE SELECCIÓ:
-            - Tria 3 vins en total.
-            - Els 2 primers vins han de ser del grup PREMIUM.
-            - El 3er vi ha de ser del grup ECONÒMICA.
+            REGLA DE SELECCIÓ (Molt important):
+            - Tria exactament 3 vins dels que t'envio.
+            - Els 2 primers han de ser de la categoria PREMIUM.
+            - El 3er ha de ser de la categoria ECONÒMICA (presenta'l com una gran oportunitat).
             
-            REGLA D'ESTIL:
-            - Escriu explicacions llargues, detallades i apassionades per a cada vi en ${idiomaReal}.
+            ESTIL DE RESPOSTA:
+            - Per a CADA VI, escriu un paràgraf extens i detallat explicant el maridatge i notes de tast.
             - Usa <span class="nom-vi-destacat"> pel nom de cada vi.
-            - No mencionis preus numèrics.
+            - No posis preus numèrics.
             
-            JSON FORMAT: {"explicacio": "text en ${idiomaReal}", "vins_triats": [{"nom": "...", "imatge": "..."}]}`
+            JSON: {"explicacio": "text detallat en ${idiomaReal}", "vins_triats": [{"nom": "...", "imatge": "..."}]}`
           },
           {
             role: 'user',
             content: `Pregunta: ${pregunta}. Premium: ${JSON.stringify(grupPremium)}. Econòmics: ${JSON.stringify(grupEconòmic)}.`
           }
         ],
-        temperature: 0.7
+        temperature: 0.8 // Una mica més de creativitat per evitar repeticions
       })
     });
 
     const data = await groqResponse.json();
-    if (!data.choices || !data.choices[0]) throw new Error("No response");
+    if (!data.choices || !data.choices[0]) throw new Error("IA Error");
 
     const contingut = JSON.parse(data.choices[0].message.content);
     res.status(200).json({ resposta: `${contingut.explicacio} ||| ${JSON.stringify(contingut.vins_triats)}` });

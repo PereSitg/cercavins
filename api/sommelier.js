@@ -18,62 +18,57 @@ module.exports = async (req, res) => {
   try {
     const { pregunta, idioma } = req.body;
     
-    // 1. DETECCIÓ DINÀMICA DE L'IDIOMA DEL DISPOSITIU
-    const langMap = { 
-      'ca': 'CATALÀ', 
-      'es': 'CASTELLANO', 
-      'en': 'ENGLISH', 
-      'fr': 'FRANÇAIS' 
-    };
-    // Agafem el codi del sistema (ex: 'es-ES' -> 'es')
+    // 1. DETECCIÓ D'IDIOMA DEL SISTEMA
+    const langMap = { 'ca': 'CATALÀ', 'es': 'CASTELLANO', 'en': 'ENGLISH', 'fr': 'FRANÇAIS' };
     const codiClient = (idioma || 'ca').toLowerCase().slice(0, 2);
-    const idiomaReal = langMap[codiClient] || 'CASTELLANO'; // Per defecte castellà si el sistema ho demana
+    const idiomaReal = langMap[codiClient] || 'CASTELLANO';
 
-    // 2. CERCA DE LA FOTO DEL VI (LOGICA TOLERANT)
+    // 2. CERCA DEL VI DE LA PREGUNTA (PER LA FOTO)
     let viPrincipal = null;
     if (pregunta) {
       const netejar = (t) => t.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
       const paraules = netejar(pregunta).split(/\s+/).filter(p => p.length > 3);
       
       if (paraules.length > 0) {
-        const totsVins = await db.collection('cercavins').limit(1500).get();
+        const totsVins = await db.collection('cercavins').limit(1000).get();
         const trobat = totsVins.docs.find(doc => {
           const nomDB = netejar(doc.data().nom || "");
           return paraules.some(p => nomDB.includes(p));
         });
         if (trobat) {
           const d = trobat.data();
-          viPrincipal = { nom: d.nom, imatge: d.imatge, do: d.do || "DO" };
+          viPrincipal = { nom: d.nom, imatge: d.imatge };
         }
       }
     }
 
-    // 3. PREPARACIÓ DE VINS SENSE INVENTAR DADES
+    // 3. RECUPERACIÓ DE VINS DE LA BBDD (2 llistes)
     const [premSnap, econSnap] = await Promise.all([
-      db.collection('cercavins').where('preu', '>', 35).limit(20).get(),
-      db.collection('cercavins').where('preu', '>=', 7).where('preu', '<=', 18).limit(20).get()
+      db.collection('cercavins').where('preu', '>', 35).limit(25).get(),
+      db.collection('cercavins').where('preu', '>=', 7).where('preu', '<=', 18).limit(25).get()
     ]);
 
     const prepararVins = (snap) => {
       return snap.docs.map(doc => {
         const d = doc.data();
-        return { nom: d.nom, imatge: d.imatge, do_oficial: d.do || "DO" };
-      }).sort(() => Math.random() - 0.5).slice(0, 10);
+        return { nom: d.nom, imatge: d.imatge, do_real: d.do || "DO" };
+      }).sort(() => Math.random() - 0.5);
     };
 
-    const llistaVins = prepararVins(premSnap).concat(prepararVins(econSnap));
+    const llistaAltaGama = prepararVins(premSnap);
+    const llistaEcon = prepararVins(econSnap);
 
-    // 4. PROMPT ADAPTATIU PER IDIOMA I PRECISIÓ
-    const promptSystem = `Eres un Sumiller de élite. 
-    IDIOMA OBLIGATORIO: Responde exclusivamente en ${idiomaReal}.
+    // 4. PROMPT ULTRA-ESTRICTE (OBLIGACIÓ DE 3 VINS)
+    const promptSystem = `Ets un Sommelier d'elit. 
+    IDIOMA: Respon exclusivament en ${idiomaReal}.
     
-    INSTRUCCIONES:
-    - Explicación MAGISTRAL de más de 450 palabras. 
-    - No inventes Denominaciones de Origen. Usa el campo "do_oficial".
-    - El nombre del vino debe ir en: <span class="nom-vi-destacat">...</span>
-    - La DO, uva o bodega en: <span class="text-destacat-groc">...</span>
+    ORDRES CRÍTIQUES:
+    1. L'explicació ha de tenir un mínim de 450 paraules. Sigues magistral.
+    2. Has de triar EXACTAMENT 3 VINS de la llista que et dono: 2 de ALTA GAMA i 1 de ECONOMICA.
+    3. No t'inventis les DO. Usa el camp "do_real".
+    4. Usa <span class="nom-vi-destacat"> pel nom i <span class="text-destacat-groc"> per la DO.
     
-    JSON FORMAT: {"explicacio": "...", "vins_triats": [{"nom": "...", "imatge": "..."}]}`;
+    JSON OBLIGATORI: {"explicacio": "...", "vins_triats": [{"nom": "...", "imatge": "..."}, {"nom": "...", "imatge": "..."}, {"nom": "...", "imatge": "..."}]}`;
 
     const groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
@@ -86,7 +81,7 @@ module.exports = async (req, res) => {
         response_format: { type: "json_object" },
         messages: [
           { role: 'system', content: promptSystem },
-          { role: 'user', content: `Consulta: ${pregunta}. Vinos: ${JSON.stringify(llistaVins)}` }
+          { role: 'user', content: `Consulta: ${pregunta}. ALTA GAMA: ${JSON.stringify(llistaAltaGama.slice(0,10))}. ECONOMICA: ${JSON.stringify(llistaEcon.slice(0,10))}` }
         ],
         temperature: 0.1
       })
@@ -95,9 +90,11 @@ module.exports = async (req, res) => {
     const data = await groqResponse.json();
     const contingut = JSON.parse(data.choices[0].message.content);
     
-    // 5. MUNTATGE FINAL
+    // 5. ASSEGURAR QUE SURTEN ELS 4 VINS (EL DE LA PREGUNTA + ELS 3 RECOMANATS)
     let vinsFinals = contingut.vins_triats || [];
+    
     if (viPrincipal) {
+      // Afegim el vi de la pregunta al principi i mantenim els 3 de la IA
       vinsFinals = [viPrincipal, ...vinsFinals.filter(v => v.nom !== viPrincipal.nom)].slice(0, 4);
     }
 

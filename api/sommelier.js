@@ -22,6 +22,24 @@ module.exports = async (req, res) => {
     const codi = (idioma || 'ca').toLowerCase().slice(0, 2);
     const idiomaReal = langMap[codi] || 'CATALÀ';
 
+    // 1. BUSCAR EL VI MENCIONAT A LA PREGUNTA (Per mostrar la foto)
+    let viPrincipal = null;
+    const paraulesCerca = pregunta.split(' ').filter(p => p.length > 3);
+    if (paraulesCerca.length > 0) {
+      // Busquem per la primera paraula significativa (ex: "Cune")
+      const cercaSnap = await db.collection('cercavins')
+        .where('nom', '>=', paraulesCerca[0])
+        .where('nom', '<=', paraulesCerca[0] + '\uf8ff')
+        .limit(1)
+        .get();
+      
+      if (!cercaSnap.empty) {
+        const d = cercaSnap.docs[0].data();
+        viPrincipal = { nom: d.nom, imatge: d.imatge };
+      }
+    }
+
+    // 2. RECUPERACIÓ DE RECOMANACIONS
     const [premSnap, econSnap] = await Promise.all([
       db.collection('cercavins').where('preu', '>', 35).limit(40).get(),
       db.collection('cercavins').where('preu', '>=', 7).where('preu', '<=', 18).limit(40).get()
@@ -41,7 +59,7 @@ module.exports = async (req, res) => {
     const seleccioPremium = netejarVins(premSnap);
     const seleccioEcon = netejarVins(econSnap);
 
-    // 2. PROMPT ACTUALITZAT AMB EL GROC
+    // 3. PROMPT AMB FORMAT GROC I RECOMANACIONS
     const promptSystem = `Ets un Sommelier d'elit. Respon EXCLUSIVAMENT en ${idiomaReal}.
     
     NORMES VISUALS:
@@ -52,7 +70,7 @@ module.exports = async (req, res) => {
     1. Si l'usuari pregunta per MARISC o PEIX, selecciona només vins BLANCS o ESCUMOSOS. PROHIBIT vins negres.
     2. L'explicació ha de ser LLARGA i MAGISTRAL (mínim 300 paraules).
     3. Tria 2 de ALTA_GAMA i 1 de OPCIÓ_ASSEQUIBLE.
-    4. Per a cada vi, descriu celler, varietat i maridatge.
+    4. Descriu celler, varietat i maridatge per a cada vi.
     
     RESPON NOMÉS AMB AQUEST JSON: {"explicacio": "...", "vins_triats": [{"nom": "...", "imatge": "..."}]}`;
 
@@ -74,21 +92,24 @@ module.exports = async (req, res) => {
     });
 
     const data = await groqResponse.json();
-
-    if (!data?.choices?.[0]?.message?.content) {
-      throw new Error("L'API de Groq no ha tornat dades vàlides.");
-    }
+    if (!data?.choices?.[0]?.message?.content) throw new Error("IA Error");
 
     const contingut = JSON.parse(data.choices[0].message.content);
+    
+    // Ajuntem el vi de la pregunta amb els recomanats
+    let vinsFinals = contingut.vins_triats || [];
+    if (viPrincipal) {
+      vinsFinals.unshift(viPrincipal); // El vi preguntat apareix primer
+    }
+
     const textFinal = contingut.explicacio || contingut.explicación || contingut.explanation;
-    const vinsFinals = contingut.vins_triats || contingut.vins || [];
 
     res.status(200).json({ resposta: `${textFinal} ||| ${JSON.stringify(vinsFinals)}` });
 
   } catch (error) {
     console.error("Error Sommelier:", error);
     res.status(200).json({ 
-      resposta: `Ho sento Pere, el celler està tancat per manteniment: ${error.message} ||| []` 
+      resposta: `Error en el celler: ${error.message} ||| []` 
     });
   }
 };

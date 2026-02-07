@@ -18,54 +18,58 @@ module.exports = async (req, res) => {
   try {
     const { pregunta, idioma } = req.body;
     
-    // 1. FORÇAR IDIOMA DEL DISPOSITIU
     const langMap = { 'ca': 'CATALÀ', 'es': 'CASTELLANO', 'en': 'ENGLISH', 'fr': 'FRANÇAIS' };
     const codi = (idioma || 'ca').toLowerCase().slice(0, 2);
     const idiomaReal = langMap[codi] || 'CATALÀ';
 
-    // 2. CERCA DEL VI (Més tolerant amb majúscules/minúscules)
+    // 1. CERCA "TODO TERRENO" DE LA FOTO (Sense accents i parcial)
     let viPrincipal = null;
-    const paraules = pregunta?.split(/\s+/) || [];
-    const paraulaClau = paraules.find(p => p.length > 3);
-
-    if (paraulaClau) {
-      const term = paraulaClau.toLowerCase();
-      const totsVins = await db.collection('cercavins').limit(500).get();
-      const trobat = totsVins.docs.find(doc => doc.data().nom.toLowerCase().includes(term));
+    if (pregunta) {
+      const netejarText = (t) => t.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      const paraulesCerca = netejarText(pregunta).split(/\s+/).filter(p => p.length > 3);
       
-      if (trobat) {
-        const d = trobat.data();
-        viPrincipal = { nom: d.nom, imatge: d.imatge };
+      if (paraulesCerca.length > 0) {
+        const totsVins = await db.collection('cercavins').limit(1500).get();
+        
+        // Busquem el vi que contingui la paraula clau (ex: "murrieta") ignorant accents
+        const trobat = totsVins.docs.find(doc => {
+          const nomViDB = netejarText(doc.data().nom || "");
+          return paraulesCerca.some(p => nomViDB.includes(p));
+        });
+
+        if (trobat) {
+          const d = trobat.data();
+          viPrincipal = { nom: d.nom, imatge: d.imatge };
+        }
       }
     }
 
-    // 3. RECUPERACIÓ DE RECOMANACIONS
+    // 2. RECOLLIDA DE SUGGERIMENTS
     const [premSnap, econSnap] = await Promise.all([
-      db.collection('cercavins').where('preu', '>', 35).limit(30).get(),
-      db.collection('cercavins').where('preu', '>=', 7).where('preu', '<=', 18).limit(30).get()
+      db.collection('cercavins').where('preu', '>', 35).limit(20).get(),
+      db.collection('cercavins').where('preu', '>=', 7).where('preu', '<=', 18).limit(20).get()
     ]);
 
     const shuffle = (array) => array.sort(() => Math.random() - 0.5);
-    const netejar = (snap) => {
+    const prepararVins = (snap) => {
       let l = [];
       snap.forEach(doc => {
         const d = doc.data();
-        l.push({ nom: d.nom, do: d.do || "DO", imatge: d.imatge, preu: d.preu });
+        l.push({ nom: d.nom, imatge: d.imatge });
       });
       return shuffle(l).slice(0, 10);
     };
 
-    // 4. PROMPT ULTRA-ESTRICTE AMB L'IDIOMA
-    const promptSystem = `Responde OBLIGATORIAMENTE en el idioma: ${idiomaReal}.
-    Tu nombre es Gemini Sommelier.
-    
-    INSTRUCCIONES:
-    - Si el usuario pregunta por un vino concreto (como "${paraulaClau}"), explica su historia, bodega, notas de cata y maridaje de forma magistral y EXTENSA (400 palabras).
-    - Usa <span class="nom-vi-destacat"> para nombres de vinos.
-    - Usa <span class="text-destacat-groc"> para DO, uvas y bodegas.
-    - Selecciona 3 vinos sugeridos de las listas (2 Alta Gama, 1 Económico).
-    
-    RESPUESTA EN FORMATO JSON: {"explicacio": "...", "vins_triats": [{"nom": "...", "imatge": "..."}]}`;
+    const llistaContext = prepararVins(premSnap).concat(prepararVins(econSnap));
+
+    // 3. PROMPT ESTRICTE
+    const promptSystem = `Respon OBLIGATORIAMENT en ${idiomaReal}. Ets un Sommelier d'elit.
+    NORMES:
+    - Si pregunten per un vi: explica història, celler i notes de tast (Mínim 350 paraules).
+    - Usa <span class="nom-vi-destacat"> pel nom del vi.
+    - Usa <span class="text-destacat-groc"> per DO, raïms i cellers.
+    - Tria 3 suggeriments coherents de la llista.
+    JSON: {"explicacio": "...", "vins_triats": [{"nom": "...", "imatge": "..."}]}`;
 
     const groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
@@ -78,7 +82,7 @@ module.exports = async (req, res) => {
         response_format: { type: "json_object" },
         messages: [
           { role: 'system', content: promptSystem },
-          { role: 'user', content: `Idioma: ${idiomaReal}. Pregunta del cliente: ${pregunta}. Vinos sugeridos: ${JSON.stringify(netejar(premSnap).concat(netejar(econSnap)))}` }
+          { role: 'user', content: `Pregunta: ${pregunta}. Vins: ${JSON.stringify(llistaContext)}` }
         ],
         temperature: 0.3
       })
@@ -87,7 +91,7 @@ module.exports = async (req, res) => {
     const data = await groqResponse.json();
     const contingut = JSON.parse(data.choices[0].message.content);
     
-    // Unifiquem: el vi que has preguntat SEMPRE surt el primer
+    // 4. EL TRUC FINAL: Punxem la foto trobada a Firestore la primera
     let vinsFinals = contingut.vins_triats || [];
     if (viPrincipal) {
       vinsFinals = [viPrincipal, ...vinsFinals.filter(v => v.nom !== viPrincipal.nom)].slice(0, 4);

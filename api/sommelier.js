@@ -1,15 +1,4 @@
-const admin = require('firebase-admin');
-
-if (!admin.apps.length) {
-  admin.initializeApp({
-    credential: admin.credential.cert({
-      projectId: process.env.FIREBASE_PROJECT_ID,
-      clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-      privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-    }),
-  });
-}
-const db = admin.firestore();
+// ... (mantenim la inicialització d'admin i db igual) ...
 
 module.exports = async (req, res) => {
   if (req.method !== 'POST') return res.status(405).send('Mètode no permès');
@@ -18,47 +7,41 @@ module.exports = async (req, res) => {
     const { pregunta, idioma } = req.body;
     const p = pregunta.toLowerCase();
 
-    // 1. ESTRATÈGIA DE FILTRATGE (Basat en la teva nova BBDD neta)
+    // 1. CERCA PRINCIPAL (Segons el que demana l'usuari)
     let consulta = db.collection('cercavins');
-    
-    // Intentem detectar si l'usuari demana una regió específica que ja tenim neta
     if (p.includes('priorat')) consulta = consulta.where('do', '==', 'Priorat');
     else if (p.includes('rioja')) consulta = consulta.where('do', '==', 'Rioja');
     else if (p.includes('ribera')) consulta = consulta.where('do', '==', 'Ribera del Duero');
-    else if (p.includes('champagne') || p.includes('xampany')) consulta = consulta.where('do', '==', 'Champagne');
-    else if (p.includes('borgonya') || p.includes('burgundy')) consulta = consulta.where('do', '==', 'Borgonya');
-    else if (p.includes('pauillac')) consulta = consulta.where('do', '==', 'Pauillac');
-    else if (p.includes('sicília') || p.includes('etna')) consulta = consulta.where('do', '==', 'Sicília');
-
-    // Limitem a 60 per donar varietat a la IA sense saturar el timeout
-    const snapshot = await consulta.limit(60).get();
+    else if (p.includes('xampany') || p.includes('champagne')) consulta = consulta.where('do', '==', 'Champagne');
     
+    const snapshot = await consulta.limit(40).get();
     let celler = [];
     snapshot.forEach(doc => {
       const d = doc.data();
-      if (d.nom && d.imatge) {
-        celler.push({ 
-          nom: d.nom, 
-          imatge: d.imatge, 
-          do: d.do || "", 
-          preu: d.preu || "Preu a consultar" 
-        });
-      }
+      celler.push({ nom: d.nom, imatge: d.imatge, do: d.do, preu: d.preu });
     });
 
-    // Si el filtre ha estat massa estricte i no han sortit vins, fem una cerca general
-    if (celler.length < 5) {
-      const backupSnapshot = await db.collection('cercavins').limit(40).get();
-      backupSnapshot.forEach(doc => {
-        const d = doc.data();
-        celler.push({ nom: d.nom, imatge: d.imatge, do: d.do || "", preu: d.preu || "" });
-      });
-    }
+    // 2. CERCA DE "VINS ASSEQUIBLES" (7€ - 20€) per oferir opcions
+    // Busquem vins de qualsevol DO que estiguin en aquest rang
+    const assequiblesSnapshot = await db.collection('cercavins')
+      .where('preu', '>=', 7)
+      .where('preu', '<=', 20)
+      .limit(15)
+      .get();
 
-    const langMap = { 'ca': 'CATALÀ', 'es': 'CASTELLANO', 'en': 'ENGLISH', 'fr': 'FRANÇAIS' };
+    let vinsBarats = [];
+    assequiblesSnapshot.forEach(doc => {
+      const d = doc.data();
+      vinsBarats.push({ nom: d.nom, imatge: d.imatge, do: d.do, preu: d.preu, etiqueta: "assequible" });
+    });
+
+    // Ajuntem les dues llistes per enviar-les a la IA
+    const contextIA = [...celler, ...vinsBarats];
+
+    const langMap = { 'ca': 'CATALÀ', 'es': 'CASTELLANO', 'en': 'ENGLISH' };
     const idiomaRes = langMap[idioma?.slice(0, 2)] || 'CATALÀ';
 
-    // 2. CRIDA A GROQ AMB CONTEXT ENRIQUIT
+    // 3. CRIDA A GROQ AMB ORDRE DE "TERCER VI ECONÒMIC"
     const groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -66,34 +49,30 @@ module.exports = async (req, res) => {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        model: 'llama-3.3-70b-versatile', 
+        model: 'llama-3.3-70b-versatile',
         response_format: { type: "json_object" },
         messages: [
           {
             role: 'system',
-            content: `Ets un sommelier expert i elegant. Respon SEMPRE en format JSON.
-            Idioma: ${idiomaRes}.
-            Normes: Frases amb majúscula inicial. Noms de vins en <span class="nom-vi-destacat">.
-            Context: Tens accés a vins amb la seva DO i Preu. Sigues precís en la recomanació.
-            
-            Estructura:
-            {
-              "explicacio": "Text personalitzat segons la DO i el preu...",
-              "vins_triats": [{"nom": "Nom", "imatge": "URL"}]
-            }`
+            content: `Ets un sommelier expert. Idioma: ${idiomaRes}.
+            NORMES DE SELECCIÓ:
+            - Has de triar SEMPRE 3 vins.
+            - El tercer vi ha de ser obligatòriament un dels que tenen l'etiqueta "assequible" (preu entre 7€ i 20€).
+            - Presenta aquest tercer vi com una "opció amb excel·lent relació qualitat-preu" o "una troballa assequible".
+            - No diguis el preu numèric, però explica que és una opció més econòmica.
+            - Mantén el format <span class="nom-vi-destacat"> i no usis majúscules a cada paraula.`
           },
           {
             role: 'user',
-            content: `Celler disponible (mostra de ${celler.length} vins): ${JSON.stringify(celler)}. Pregunta de l'usuari: ${pregunta}`
+            content: `Llista de vins: ${JSON.stringify(contextIA)}. Pregunta: ${pregunta}`
           }
         ],
-        temperature: 0.3 // Pugem una mica per fer-lo més "humà" i menys robòtic
+        temperature: 0.4
       })
     });
 
     const data = await groqResponse.json();
     const contingut = JSON.parse(data.choices[0].message.content);
-
     const respostaFinal = `${contingut.explicacio} ||| ${JSON.stringify(contingut.vins_triats)}`;
     res.status(200).json({ resposta: respostaFinal });
 

@@ -18,42 +18,46 @@ module.exports = async (req, res) => {
   try {
     const { pregunta, idioma } = req.body;
 
-    // 1. DETERMINACIÓ DE L'IDIOMA (Català, Castellà, Anglès, Francès)
-    const langMap = { 
-      'ca': 'CATALÀ', 
-      'es': 'CASTELLANO', 
-      'en': 'ENGLISH', 
-      'fr': 'FRANÇAIS' 
-    };
-    const codiIdioma = (idioma || 'ca').toLowerCase().slice(0, 2);
-    const idiomaReal = langMap[codiIdioma] || 'CATALÀ';
+    // 1. FORÇAR IDIOMA
+    const langMap = { 'ca': 'CATALÀ', 'es': 'CASTELLANO', 'en': 'ENGLISH', 'fr': 'FRANÇAIS' };
+    const codi = (idioma || 'ca').toLowerCase().slice(0, 2);
+    const idiomaReal = langMap[codi] || 'CATALÀ';
 
-    // 2. RECUPERACIÓ DE VINS AMB VARIETAT (Randomize)
-    // Busquem una mostra gran per poder barrejar
-    const [econSnapshot, premSnapshot] = await Promise.all([
-      db.collection('cercavins').where('preu', '>=', 7).where('preu', '<=', 20).limit(40).get(),
-      db.collection('cercavins').where('preu', '>', 20).limit(40).get()
-    ]);
+    // 2. BUSCAR VINS AMB ORDRE ALEATORI (Usem un truc de Firebase)
+    const randomSeed = Math.random().toString(36).substring(7);
 
-    const barrejar = (array) => array.sort(() => Math.random() - 0.5);
+    // Agafem 50 vins econòmics (7-20€)
+    const econSnapshot = await db.collection('cercavins')
+      .where('preu', '>=', 7)
+      .where('preu', '<=', 20)
+      .limit(50)
+      .get();
 
-    let totsEcon = [];
+    // Agafem 50 vins premium (>25€ per marcar distància)
+    const premSnapshot = await db.collection('cercavins')
+      .where('preu', '>', 25)
+      .limit(50)
+      .get();
+
+    const barrejar = (arr) => arr.sort(() => Math.random() - 0.5);
+
+    let llistaEcon = [];
     econSnapshot.forEach(doc => {
       const d = doc.data();
-      totsEcon.push({ nom: d.nom, do: d.do || "DO", preu: d.preu, imatge: d.imatge, categoria: "ECONÒMICA" });
+      llistaEcon.push({ nom: d.nom, do: d.do || "DO", imatge: d.imatge, preu: d.preu, tipus: "OPORTUNITAT_ECONOMICA" });
     });
 
-    let totsPrem = [];
+    let llistaPrem = [];
     premSnapshot.forEach(doc => {
       const d = doc.data();
-      totsPrem.push({ nom: d.nom, do: d.do || "DO", preu: d.preu, imatge: d.imatge, categoria: "PREMIUM" });
+      llistaPrem.push({ nom: d.nom, do: d.do || "DO", imatge: d.imatge, preu: d.preu, tipus: "JOIA_DEL_CELLER" });
     });
 
-    // Triem 10 aleatoris de cada grup per enviar a la IA
-    const grupEconòmic = barrejar(totsEcon).slice(0, 10);
-    const grupPremium = barrejar(totsPrem).slice(0, 10);
+    // Seleccionem mostres aleatòries per no repetir sempre el mateix
+    const seleccioEcon = barrejar(llistaEcon).slice(0, 10);
+    const seleccioPrem = barrejar(llistaPrem).slice(0, 10);
 
-    // 3. CRIDA A GROQ
+    // 3. CRIDA A LA IA AMB ORDRES MOLT STRICTES
     const groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -66,33 +70,30 @@ module.exports = async (req, res) => {
         messages: [
           {
             role: 'system',
-            content: `IMPORTANT: MUST RESPOND ENTIRELY IN ${idiomaReal}.
-            Ets un sommelier expert i apassionat.
+            content: `CRITICAL: You must write the entire response in ${idiomaReal}. 
             
-            REGLA DE SELECCIÓ (Molt important):
-            - Tria exactament 3 vins dels que t'envio.
-            - Els 2 primers han de ser de la categoria PREMIUM.
-            - El 3er ha de ser de la categoria ECONÒMICA (presenta'l com una gran oportunitat).
+            Ets un sommelier d'alta gamma. La teva tasca:
+            1. Escriu una introducció segons la pregunta de l'usuari en ${idiomaReal}.
+            2. TRIA EXACTAMENT 3 VINS:
+               - El Vi 1 i el Vi 2 HAN DE SER de la llista "JOIA_DEL_CELLER".
+               - El Vi 3 HA DE SER de la llista "OPORTUNITAT_ECONOMICA".
+            3. Per a cada vi, redacta un paràgraf ric, extens i exclusiu. Explica notes de tast i maridatge.
+            4. FORMAT: Usa <span class="nom-vi-destacat"> pel nom del vi. No posis preus.
             
-            ESTIL DE RESPOSTA:
-            - Per a CADA VI, escriu un paràgraf extens i detallat explicant el maridatge i notes de tast.
-            - Usa <span class="nom-vi-destacat"> pel nom de cada vi.
-            - No posis preus numèrics.
-            
-            JSON: {"explicacio": "text detallat en ${idiomaReal}", "vins_triats": [{"nom": "...", "imatge": "..."}]}`
+            JSON structure: {"explicacio": "text en ${idiomaReal}", "vins_triats": [{"nom": "...", "imatge": "..."}]}`
           },
           {
             role: 'user',
-            content: `Pregunta: ${pregunta}. Premium: ${JSON.stringify(grupPremium)}. Econòmics: ${JSON.stringify(grupEconòmic)}.`
+            content: `IDIOMA: ${idiomaReal}. Pregunta: ${pregunta}. 
+            Llista JOIA_DEL_CELLER: ${JSON.stringify(seleccioPrem)}. 
+            Llista OPORTUNITAT_ECONOMICA: ${JSON.stringify(seleccioEcon)}.`
           }
         ],
-        temperature: 0.8 // Una mica més de creativitat per evitar repeticions
+        temperature: 0.9 // Més alta per forçar varietat
       })
     });
 
     const data = await groqResponse.json();
-    if (!data.choices || !data.choices[0]) throw new Error("IA Error");
-
     const contingut = JSON.parse(data.choices[0].message.content);
     res.status(200).json({ resposta: `${contingut.explicacio} ||| ${JSON.stringify(contingut.vins_triats)}` });
 

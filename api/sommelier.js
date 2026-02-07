@@ -23,27 +23,32 @@ module.exports = async (req, res) => {
     const codiClient = (idioma || 'ca').toLowerCase().slice(0, 2);
     const idiomaReal = langMap[codiClient] || 'CATALÀ';
 
-    // 2. Consultes a Firebase més ràpides (paral·leles i limitades)
+    // 2. Recuperació de vins (mantenim el filtratge de seguretat)
     const [premSnap, econSnap] = await Promise.all([
-      db.collection('cercavins').where('preu', '>', 35).limit(15).get(),
-      db.collection('cercavins').where('preu', '>=', 7).where('preu', '<=', 18).limit(15).get()
+      db.collection('cercavins').where('preu', '>', 35).limit(10).get(),
+      db.collection('cercavins').where('preu', '>=', 7).where('preu', '<=', 18).limit(10).get()
     ]);
 
     const filtrarVins = (snap) => {
       return snap.docs
-        .map(doc => ({ nom: doc.data().nom, imatge: doc.data().imatge, do_real: doc.data().do || "DO" }))
+        .map(doc => ({ 
+          nom: doc.data().nom, 
+          imatge: doc.data().imatge, 
+          do_real: doc.data().do || "DO" 
+        }))
         .filter(v => v.do_real !== "Vila Viniteca" && v.do_real !== "Desconeguda")
         .sort(() => Math.random() - 0.5)
-        .slice(0, 6);
+        .slice(0, 5); // Enviem pocs vins per estalviar tokens
     };
 
     const llistaAlta = filtrarVins(premSnap);
     const llistaEcon = filtrarVins(econSnap);
 
-    // 3. Crida a Groq amb gestió d'errors millorada
+    // 3. Crida a Groq amb el model INSTANT
     const promptSystem = `Ets un Sommelier d'elit. Respon en ${idiomaReal}. 
-    Genera un text magistral de unes 300 paraules. 
-    Tria exactament 3 vins del JSON adjunt.
+    Fes una recomanació magistral d'unes 250 paraules. 
+    Tria exactament 3 vins del JSON (2 d'alta gama i 1 econòmic). 
+    Usa <span class="nom-vi-destacat"> pel nom i <span class="text-destacat-groc"> per la DO.
     JSON OBLIGATORI: {"explicacio": "...", "vins_triats": [{"nom": "...", "imatge": "..."}]}`;
 
     const groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -53,36 +58,34 @@ module.exports = async (req, res) => {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        model: 'llama-3.3-70b-versatile',
+        model: 'llama-3.1-8b-instant', 
         response_format: { type: "json_object" },
         messages: [
           { role: 'system', content: promptSystem },
           { role: 'user', content: `Consulta: ${pregunta}. Vins: ${JSON.stringify({alta: llistaAlta, econ: llistaEcon})}` }
         ],
-        temperature: 0.2
+        temperature: 0.3
       })
     });
 
-    if (!groqResponse.ok) {
-      const errorText = await groqResponse.text();
-      throw new Error(`Groq API Error: ${errorText}`);
-    }
-
     const data = await groqResponse.json();
+    
+    if (data.error) throw new Error(data.error.message);
+
     const contingut = JSON.parse(data.choices[0].message.content);
     
     // 4. Resposta Final
     const vinsFinals = (contingut.vins_triats || []).slice(0, 3);
-    const textFinal = contingut.explicacio || "Aquí tens la meva selecció...";
+    const textFinal = contingut.explicacio || "Aquí tens la meva selecció per a tu...";
 
     res.status(200).json({ 
       resposta: `${textFinal} ||| ${JSON.stringify(vinsFinals)}` 
     });
 
   } catch (error) {
-    console.error("DETALL ERROR:", error.message);
+    console.error("ERROR:", error.message);
     res.status(200).json({ 
-      resposta: `Error detallat: ${error.message} ||| []` 
+      resposta: `Ho sento, el sommelier està ocupat. (Error: ${error.message}) ||| []` 
     });
   }
 };

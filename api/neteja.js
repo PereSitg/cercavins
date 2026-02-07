@@ -16,52 +16,55 @@ export default async function handler(req, res) {
   if (req.query.clau !== 'pere') return res.status(401).send('No autoritzat');
 
   try {
-    // 1. Comptem el total de vins al celler
     const totalSnapshot = await db.collection('cercavins').count().get();
     const totalVins = totalSnapshot.data().count;
 
-    // 2. BUSQUEM NOMÉS ELS QUE TENEN EL PREU COM A TEXT
-    // En demanar que el preu sigui >= '', Firestore selecciona només els tipus "String"
-    const snapshot = await db.collection('cercavins')
-      .where('preu', '>=', '') 
-      .limit(100)
-      .get();
-
-    if (snapshot.empty) {
-      return res.status(200).json({ 
-        missatge: "🏁 Felicitats! Ja no queden preus per convertir.",
-        total_vins: totalVins 
-      });
-    }
+    // Busquem 100 vins on el preu NO sigui un número
+    // Agafem una mostra per veure què hi ha realment
+    const snapshot = await db.collection('cercavins').limit(100).get();
 
     const batch = db.batch();
     let preusModificats = 0;
+    let mostresErrors = [];
 
     snapshot.forEach(doc => {
       const data = doc.data();
-      if (typeof data.preu === 'string') {
-        // Netegem el text per convertir-lo en número (15,50 € -> 15.5)
-        let preuNet = data.preu.replace('€', '').replace(/\s/g, '').replace(',', '.').trim();
-        const preuNumeric = parseFloat(preuNet);
+      
+      // Si el preu és un String O si és un camp buit o indefinit
+      if (typeof data.preu !== 'number') {
+        let preuOriginal = data.preu ? String(data.preu) : "";
         
+        // Netegem a fons
+        let preuNet = preuOriginal
+          .replace('€', '')
+          .replace(/[^\d,.]/g, '') // Treiem tot el que no sigui número, coma o punt
+          .replace(',', '.')
+          .trim();
+
+        const preuNumeric = parseFloat(preuNet);
+
         if (!isNaN(preuNumeric)) {
           batch.update(doc.ref, { preu: preuNumeric });
           preusModificats++;
+        } else {
+          // Si tot i així no podem, guardem la mostra per saber què és
+          mostresErrors.push({ id: doc.id, valor_original: preuOriginal });
         }
       }
     });
 
-    await batch.commit();
+    if (preusModificats > 0) {
+      await batch.commit();
+    }
 
     return res.status(200).json({
-      missatge: "🚀 Lot processat correctament",
-      total_vins_al_celler: totalVins,
+      missatge: preusModificats > 0 ? "🚀 S'han convertit alguns preus!" : "⚠️ No s'ha pogut convertir res en aquest lot.",
+      total_vins_celler: totalVins,
       preus_convertits_ara: preusModificats,
-      pendents_estimats: "Continua refrescant fins que el comptador arribi a 0."
+      vins_amb_problemes: mostresErrors.slice(0, 5) // Ens ensenya els 5 primers errors
     });
 
   } catch (error) {
-    // Si surt un error d'índex, Firebase et donarà un link, hauràs de clicar-lo un cop
     return res.status(500).json({ error: error.message });
   }
 }

@@ -18,7 +18,7 @@ export default async function handler(req, res) {
   try {
     const randomId = db.collection('cercavins').doc().id;
     
-    // Cerquem 50 documents per trobar errors
+    // Cerquem 50 documents per trobar errors de forma aleatòria
     const snapshot = await db.collection('cercavins')
       .where(admin.firestore.FieldPath.documentId(), '>=', randomId)
       .limit(50)
@@ -27,18 +27,18 @@ export default async function handler(req, res) {
     const batch = db.batch();
     let historial = [];
 
+    // Filtrem els que tenen Vila Viniteca o els "Desconeguda" de l'intent anterior
     const vinsPerReparar = snapshot.docs.filter(doc => {
       const doText = String(doc.data().do || "");
-      // Ara també reparem si ha posat "Desconeguda" o "Aragó" erròniament en vins que sabem que no ho són
       return doText.includes("Vila Viniteca") || 
-             doText.includes("instrucciones") || 
              doText.includes("Desconeguda") || 
+             doText.includes("instrucciones") ||
              doText.length > 35;
     });
 
     if (vinsPerReparar.length === 0) {
       return res.status(200).json({ 
-        missatge: "🔍 Cap error trobat en aquesta zona. Segueix buscant!" 
+        missatge: "🔍 Sembla que aquesta zona està neta. Refresca per saltar a una altra part!" 
       });
     }
 
@@ -55,39 +55,29 @@ export default async function handler(req, res) {
           model: 'llama-3.3-70b-versatile',
           messages: [
             { 
-              role: 'system', 
-              content: `Ets un sommelier mestre. Identifica la DO oficial.
-              DICCIONARI DE CORRECCIÓ:
-              - 'Bimbache': DO El Hierro.
-              - 'Sierra Cantabria' o 'Viñedos de Páganos': DO Ca Rioja.
-              - 'Alcor': DO Alicante.
-              - 'Muchada-Léclapart': Cádiz (Vinos de la Tierra).
-              - 'Dominio de Es': DO Ribera del Duero.
-              - 'Zuccardi' o 'Catena Zapata': Mendoza (Argentina).
-              - 'Willi Schaefer': Mosel (Alemanya).
-              - 'Étienne Calsac': Champagne (França).
-              - 'La Nieta': DO Ca Rioja.
-              REGLES: Respon NOMÉS el nom de la DO o Regió. Màxim 3 paraules.` 
-            },
-            { role: 'user', content: `DO del vi: ${d.nom}` }
+              role: 'user', 
+              content: `Ets un sommelier expert. Digues només el nom de la regió vinícola o Denominació d'Origen d'aquest vi: "${d.nom}". Respon només el nom de la zona, sense frases, ni punts, ni explicacions.` 
+            }
           ],
           temperature: 0.1
         })
       });
 
       const aiData = await groqRes.json();
-      let doNeta = aiData.choices?.[0]?.message?.content?.trim() || "DO Desconeguda";
-      doNeta = doNeta.replace(/\./g, '').replace(/"/g, '');
+      let doNeta = aiData.choices?.[0]?.message?.content?.trim() || "DO Pendent";
+      
+      // Neteja final de format (llevem punts, cometes i el prefix "DO ")
+      doNeta = doNeta.replace(/\./g, '').replace(/"/g, '').replace(/^DO /i, '');
 
       batch.update(doc.ref, { do: doNeta });
-      historial.push({ vi: d.nom, de: d.do, a: doNeta });
+      historial.push({ vi: d.nom, abans: d.do, ara: doNeta });
     }
 
     await batch.commit();
 
     return res.status(200).json({
-      status: "✅ Neteja amb diccionari actualitzat",
-      reparats: historial
+      status: "🚀 NETEJA SIMPLIFICADA EXECUTADA",
+      vins_reparats: historial
     });
 
   } catch (error) {

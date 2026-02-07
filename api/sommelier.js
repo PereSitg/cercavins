@@ -1,4 +1,18 @@
-// ... (mantenim la inicialització d'admin i db igual) ...
+const admin = require('firebase-admin');
+
+// 1. INICIALITZACIÓ (Fora de l'handler per reutilitzar la connexió)
+if (!admin.apps.length) {
+  admin.initializeApp({
+    credential: admin.credential.cert({
+      projectId: process.env.FIREBASE_PROJECT_ID,
+      clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+      privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+    }),
+  });
+}
+
+// DEFINIM DB AQUÍ PERQUÈ ESTIGUI DISPONIBLE A TOT EL FITXER
+const db = admin.firestore();
 
 module.exports = async (req, res) => {
   if (req.method !== 'POST') return res.status(405).send('Mètode no permès');
@@ -7,41 +21,45 @@ module.exports = async (req, res) => {
     const { pregunta, idioma } = req.body;
     const p = pregunta.toLowerCase();
 
-    // 1. CERCA PRINCIPAL (Segons el que demana l'usuari)
-    let consulta = db.collection('cercavins');
-    if (p.includes('priorat')) consulta = consulta.where('do', '==', 'Priorat');
-    else if (p.includes('rioja')) consulta = consulta.where('do', '==', 'Rioja');
-    else if (p.includes('ribera')) consulta = consulta.where('do', '==', 'Ribera del Duero');
-    else if (p.includes('xampany') || p.includes('champagne')) consulta = consulta.where('do', '==', 'Champagne');
-    
-    const snapshot = await consulta.limit(40).get();
-    let celler = [];
-    snapshot.forEach(doc => {
-      const d = doc.data();
-      celler.push({ nom: d.nom, imatge: d.imatge, do: d.do, preu: d.preu });
-    });
-
-    // 2. CERCA DE "VINS ASSEQUIBLES" (7€ - 20€) per oferir opcions
-    // Busquem vins de qualsevol DO que estiguin en aquest rang
+    // 2. CERCA DE VINS ASSEQUIBLES (Ara que ja són Numbers!)
+    // Busquem vins entre 7 i 20 euros
     const assequiblesSnapshot = await db.collection('cercavins')
       .where('preu', '>=', 7)
       .where('preu', '<=', 20)
-      .limit(15)
+      .limit(10)
       .get();
 
-    let vinsBarats = [];
+    let vinsAssequibles = [];
     assequiblesSnapshot.forEach(doc => {
       const d = doc.data();
-      vinsBarats.push({ nom: d.nom, imatge: d.imatge, do: d.do, preu: d.preu, etiqueta: "assequible" });
+      vinsAssequibles.push({ 
+        nom: d.nom, 
+        imatge: d.imatge, 
+        do: d.do || "DO", 
+        preu: d.preu, 
+        perfil: "economica" 
+      });
     });
 
-    // Ajuntem les dues llistes per enviar-les a la IA
-    const contextIA = [...celler, ...vinsBarats];
+    // 3. CERCA GENERAL (Per donar varietat)
+    const snapshot = await db.collection('cercavins').limit(20).get();
+    let cellerGeneral = [];
+    snapshot.forEach(doc => {
+      const d = doc.data();
+      cellerGeneral.push({ 
+        nom: d.nom, 
+        imatge: d.imatge, 
+        do: d.do || "DO", 
+        preu: d.preu 
+      });
+    });
+
+    const contextTotal = [...vinsAssequibles, ...cellerGeneral];
 
     const langMap = { 'ca': 'CATALÀ', 'es': 'CASTELLANO', 'en': 'ENGLISH' };
     const idiomaRes = langMap[idioma?.slice(0, 2)] || 'CATALÀ';
 
-    // 3. CRIDA A GROQ AMB ORDRE DE "TERCER VI ECONÒMIC"
+    // 4. CRIDA A GROQ
     const groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -55,24 +73,25 @@ module.exports = async (req, res) => {
           {
             role: 'system',
             content: `Ets un sommelier expert. Idioma: ${idiomaRes}.
-            NORMES DE SELECCIÓ:
-            - Has de triar SEMPRE 3 vins.
-            - El tercer vi ha de ser obligatòriament un dels que tenen l'etiqueta "assequible" (preu entre 7€ i 20€).
-            - Presenta aquest tercer vi com una "opció amb excel·lent relació qualitat-preu" o "una troballa assequible".
-            - No diguis el preu numèric, però explica que és una opció més econòmica.
-            - Mantén el format <span class="nom-vi-destacat"> i no usis majúscules a cada paraula.`
+            - Tria 3 vins del context proporcionat.
+            - El tercer vi ha de ser un dels de perfil 'economica'.
+            - NO posis majúscula a cada paraula.
+            - NO mencionis preus numèrics.
+            - Usa <span class="nom-vi-destacat"> pel nom dels vins.`
           },
           {
             role: 'user',
-            content: `Llista de vins: ${JSON.stringify(contextIA)}. Pregunta: ${pregunta}`
+            content: `Vins: ${JSON.stringify(contextTotal)}. Pregunta: ${pregunta}`
           }
         ],
-        temperature: 0.4
+        temperature: 0.5
       })
     });
 
     const data = await groqResponse.json();
     const contingut = JSON.parse(data.choices[0].message.content);
+
+    // Format final per al teu frontend
     const respostaFinal = `${contingut.explicacio} ||| ${JSON.stringify(contingut.vins_triats)}`;
     res.status(200).json({ resposta: respostaFinal });
 

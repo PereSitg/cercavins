@@ -18,7 +18,17 @@ module.exports = async (req, res) => {
   try {
     const { pregunta, idioma } = req.body;
 
-    // 1. Preparem els dos grups de vins ben diferenciats
+    // DETERMINACIÓ DE L'IDIOMA (Ara incloent el Francès)
+    const langMap = { 
+      'ca': 'CATALÀ', 
+      'es': 'CASTELLANO', 
+      'en': 'ENGLISH', 
+      'fr': 'FRANÇAIS' 
+    };
+    const codiIdioma = (idioma || 'ca').toLowerCase().slice(0, 2);
+    const idiomaReal = langMap[codiIdioma] || 'CATALÀ';
+
+    // 1. Grups de vins (2 Premium + 1 Econòmic)
     const assequiblesSnapshot = await db.collection('cercavins')
       .where('preu', '>=', 7)
       .where('preu', '<=', 20)
@@ -32,7 +42,7 @@ module.exports = async (req, res) => {
     });
 
     const generalSnapshot = await db.collection('cercavins')
-      .where('preu', '>', 20) // Busquem vins de més de 20€ per contrastar
+      .where('preu', '>', 20)
       .limit(15)
       .get();
 
@@ -42,10 +52,7 @@ module.exports = async (req, res) => {
       grupPremium.push({ nom: d.nom, do: d.do || "DO", preu: d.preu, imatge: d.imatge, categoria: "PREMIUM" });
     });
 
-    const langMap = { 'ca': 'CATALÀ', 'es': 'CASTELLANO', 'en': 'ENGLISH' };
-    const idiomaRes = langMap[idioma?.slice(0, 2)] || 'CATALÀ';
-
-    // 2. Crida a Groq amb regles de selecció estrictes
+    // 2. Crida a Groq
     const groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -58,31 +65,32 @@ module.exports = async (req, res) => {
         messages: [
           {
             role: 'system',
-            content: `Ets un sommelier de prestigi. Idioma: ${idiomaRes}.
+            content: `STRICT RULE: YOU MUST RESPOND ENTIRELY IN ${idiomaReal}.
+            Ets un sommelier expert.
             
-            REGLA D'OR PER LA TRIA DE VINS:
-            - Has de triar exactament 3 vins.
-            - Els 2 primers vins han de ser de la categoria 'PREMIUM'. Són vins especials i complexos.
-            - El 3er vi ha de ser de la categoria 'ECONÒMICA'. Presenta'l com una troballa amb una relació qualitat-preu immillorable.
+            REGLA DE SELECCIÓ:
+            - Tria 3 vins en total.
+            - Els 2 primers vins han de ser del grup PREMIUM.
+            - El 3er vi ha de ser del grup ECONÒMICA.
             
-            ESTIL DE RESPOSTA:
-            - Escriu una explicació detallada i passional per a cada vi (un paràgraf per vi).
-            - No diguis el preu ni la paraula "barat". Usa termes com "assequible", "excel·lent relació qualitat-preu" o "opció amable".
-            - Usa <span class="nom-vi-destacat"> pel nom dels vins.
+            REGLA D'ESTIL:
+            - Escriu explicacions llargues, detallades i apassionades per a cada vi en ${idiomaReal}.
+            - Usa <span class="nom-vi-destacat"> pel nom de cada vi.
+            - No mencionis preus numèrics.
             
-            FORMAT JSON: {"explicacio": "...", "vins_triats": [{"nom": "...", "imatge": "..."}]}`
+            JSON FORMAT: {"explicacio": "text en ${idiomaReal}", "vins_triats": [{"nom": "...", "imatge": "..."}]}`
           },
           {
             role: 'user',
-            content: `Vins PREMIUM: ${JSON.stringify(grupPremium)}. Vins ECONÒMICS: ${JSON.stringify(grupEconòmic)}. Pregunta: ${pregunta}`
+            content: `Pregunta: ${pregunta}. Premium: ${JSON.stringify(grupPremium)}. Econòmics: ${JSON.stringify(grupEconòmic)}.`
           }
         ],
-        temperature: 0.6
+        temperature: 0.7
       })
     });
 
     const data = await groqResponse.json();
-    if (!data.choices || !data.choices[0]) throw new Error("Error en la resposta de la IA");
+    if (!data.choices || !data.choices[0]) throw new Error("No response");
 
     const contingut = JSON.parse(data.choices[0].message.content);
     res.status(200).json({ resposta: `${contingut.explicacio} ||| ${JSON.stringify(contingut.vins_triats)}` });

@@ -19,56 +19,58 @@ module.exports = async (req, res) => {
     const { pregunta, idioma } = req.body;
     const p = pregunta.toLowerCase();
     
+    // 1. Idioma
     const langMap = { 'ca': 'CATALÀ', 'es': 'CASTELLANO', 'en': 'ENGLISH', 'fr': 'FRANÇAIS' };
     const codiClient = (idioma || 'ca').toLowerCase().slice(0, 2);
     const idiomaReal = langMap[codiClient] || 'CATALÀ';
 
-    // 1. Cercar 100 vins per tenir varietat
+    // 2. Extracció de paraules clau (raïm, països, regions)
+    const paraulesClau = p.split(/[ ,.!?]+/).filter(w => w.length > 3);
+
+    // 3. Recuperació massiva per tenir on triar (Límit 50 per categoria)
     const [premSnap, econSnap] = await Promise.all([
-      db.collection('cercavins').where('preu', '>', 35).limit(100).get(),
-      db.collection('cercavins').where('preu', '>=', 7).where('preu', '<=', 18).limit(100).get()
+      db.collection('cercavins').where('preu', '>', 35).limit(50).get(),
+      db.collection('cercavins').where('preu', '>=', 7).where('preu', '<=', 18).limit(50).get()
     ]);
 
-    // 2. Processar i crear un mapa de referència (ID -> Dades)
-    const mapaVins = {};
-    const processarVins = (snap) => {
+    const filtrarVins = (snap) => {
       return snap.docs
         .map(doc => {
           const d = doc.data();
-          const id = doc.id;
-          const vi = {
-            id: id,
-            nom: d.nom,
-            do: d.do || "DO",
-            imatge: d.imatge || "",
-            desc: `${d.nom} ${d.do} ${d.tipus || ''} ${d.varietat || ''}`.toLowerCase()
+          return { 
+            nom: d.nom, 
+            imatge: d.imatge, 
+            do_real: d.do || "DO",
+            varietat: d.varietat || "",
+            tipus: d.tipus || ""
           };
-          if (vi.imatge && vi.imatge.startsWith('http') && vi.do !== "Vila Viniteca") {
-             mapaVins[id] = vi; // Guardem al mapa per recuperar-lo després
-             return vi;
-          }
-          return null;
         })
-        .filter(v => v !== null)
+        .filter(v => {
+          // Seguretat: Ha de tenir imatge i no ser Vila Viniteca
+          if (!v.imatge || v.do_real === "Vila Viniteca") return false;
+          
+          // Filtre intel·ligent: si l'usuari busca algo específic, mirem si el vi ho té
+          if (paraulesClau.length === 0) return true;
+          const textVi = `${v.nom} ${v.do_real} ${v.varietat} ${v.tipus}`.toLowerCase();
+          return paraulesClau.some(clau => textVi.includes(clau));
+        })
         .sort(() => Math.random() - 0.5)
-        .slice(0, 15);
+        .slice(0, 15); // Passar-ne 15 a la IA és el punt ideal
     };
 
-    const llistaAlta = processarVins(premSnap);
-    const llistaEcon = processarVins(econSnap);
+    const llistaAlta = filtrarVins(premSnap);
+    const llistaEcon = filtrarVins(econSnap);
 
-    // 3. Prompt: Només enviem ID, NOM i DO a la IA (no la URL, per no confondre-la)
-    const llistaPerIA = [...llistaAlta, ...llistaEcon].map(v => ({ id: v.id, nom: v.nom, do: v.do }));
-
-    const promptSystem = `Ets un Sommelier d'elit. Respon en ${idiomaReal}.
-    OBJECTIU: Escriu una recomanació MAGISTRAL d'unes 300 paraules. 
-    FORMAT: Vi en <span class="nom-vi-destacat"> i DO en <span class="text-destacat-groc">.
+    // 4. PROMPT (Mantenint l'estructura que t'ha funcionat)
+    const promptSystem = `Ets un Sommelier d'elit. Respon en ${idiomaReal}. 
+    Escriu una recomanació MAGISTRAL de unes 300 paraules. Sigues molt descriptiu i expert.
     
-    Tria 3 vins del llistat. És OBLIGATORI que retornis l'ID del vi que has triat.
-    
-    VINS: ${JSON.stringify(llistaPerIA)}
+    REGLA D'OR DE FORMAT:
+    - Cada vegada que mencionis un VI, usa: <span class="nom-vi-destacat">NOM DEL VI</span>.
+    - Cada vegada que mencionis una DO, usa: <span class="text-destacat-groc">NOM DO</span>.
 
-    JSON OBLIGATORI: {"explicacio": "...", "ids_triats": ["id1", "id2", "id3"]}`;
+    IMPORTANT: Tria exactament 3 vins del JSON i usa la seva "imatge" tal qual apareix. No inventis res.
+    JSON OBLIGATORI: {"explicacio": "Text llarg amb els span HTML...", "vins_triats": [{"nom": "...", "imatge": "..."}]}`;
 
     const groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
@@ -79,26 +81,31 @@ module.exports = async (req, res) => {
       body: JSON.stringify({
         model: 'llama-3.1-8b-instant', 
         response_format: { type: "json_object" },
-        messages: [ { role: 'system', content: promptSystem }, { role: 'user', content: pregunta } ],
-        temperature: 0.6
+        messages: [
+          { role: 'system', content: promptSystem },
+          { role: 'user', content: `Consulta: ${pregunta}. Vins disponibles: ${JSON.stringify({alta: llistaAlta, econ: llistaEcon})}` }
+        ],
+        temperature: 0.4
       })
     });
 
     const data = await groqResponse.json();
+    if (data.error) throw new Error(data.error.message);
+
     const contingut = JSON.parse(data.choices[0].message.content);
     
-    // 4. RECUPERACIÓ REAL DE LES IMATGES (Aquí està la clau)
-    // Busquem al nostre mapa els IDs que la IA ha triat
-    const vinsFinals = (contingut.ids_triats || []).map(id => {
-       const v = mapaVins[id];
-       return v ? { nom: v.nom, imatge: v.imatge } : null;
-    }).filter(v => v !== null);
+    // 5. Resposta Final
+    const vinsFinals = (contingut.vins_triats || []).slice(0, 3);
+    const textFinal = contingut.explicacio || "Aquí tens la meva selecció...";
 
     res.status(200).json({ 
-      resposta: `${contingut.explicacio} ||| ${JSON.stringify(vinsFinals)}` 
+      resposta: `${textFinal} ||| ${JSON.stringify(vinsFinals)}` 
     });
 
   } catch (error) {
-    res.status(200).json({ resposta: `Error en el servei. ||| []` });
+    console.error("ERROR:", error.message);
+    res.status(200).json({ 
+      resposta: `Ho sento, el sommelier està ocupat. (Error: ${error.message}) ||| []` 
+    });
   }
 };

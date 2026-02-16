@@ -22,44 +22,54 @@ module.exports = async (req, res) => {
     const langMap = { 'ca': 'CATALÀ', 'es': 'CASTELLANO', 'en': 'ENGLISH', 'fr': 'FRANÇAIS' };
     const idiomaReal = langMap[(idioma || 'ca').toLowerCase().slice(0, 2)] || 'CATALÀ';
 
-    // 1. Filtratge dinàmic (Món, Raïm, DO)
+    // Paraules clau per al maridatge
     const paraulesClau = p.split(/[ ,.!?]+/).filter(w => w.length > 3);
 
+    // 1. Recuperació de vins amb un límit més alt per poder filtrar millor
     const [premSnap, econSnap] = await Promise.all([
       db.collection('cercavins').where('preu', '>', 35).limit(40).get(),
       db.collection('cercavins').where('preu', '>=', 7).where('preu', '<=', 18).limit(40).get()
     ]);
 
-    const processar = (snap) => {
+    const filtrarVins = (snap) => {
       return snap.docs
-        .map(doc => ({ 
-          nom: doc.data().nom, 
-          imatge: doc.data().imatge, 
-          do: doc.data().do || "DO",
-          cerca: `${doc.data().nom} ${doc.data().do} ${doc.data().varietat || ''} ${doc.data().tipus || ''}`.toLowerCase()
-        }))
+        .map(doc => {
+          const d = doc.data();
+          return { 
+            nom: d.nom, 
+            imatge: d.imatge || "", 
+            do_real: d.do || "DO",
+            cerca: `${d.nom} ${d.do} ${d.varietat || ''} ${d.tipus || ''}`.toLowerCase()
+          };
+        })
         .filter(v => {
-          if (!v.imatge || v.do === "Vila Viniteca") return false;
-          if (paraulesClau.length === 0) return true;
-          return paraulesClau.some(clau => v.cerca.includes(clau)) || (p.includes('percebe') && v.cerca.includes('blanc'));
+          // REGLA D'OR: Ha de tenir imatge real i no ser un logo genèric
+          const teImatgeReal = v.imatge.startsWith('http');
+          const noEsLogo = !v.nom.includes("Vila Viniteca") && v.do_real !== "Vila Viniteca";
+          if (!teImatgeReal || !noEsLogo) return false;
+
+          // Si demanem maridatge de marisc, prioritzem blancs
+          if (p.includes('percebe') || p.includes('marisc')) {
+             return v.cerca.includes('blanc');
+          }
+          return true;
         })
         .sort(() => Math.random() - 0.5)
-        .slice(0, 10);
+        .slice(0, 10); 
     };
 
-    const llistaAlta = processar(premSnap);
-    const llistaEcon = processar(econSnap);
+    const llistaAlta = filtrarVins(premSnap);
+    const llistaEcon = filtrarVins(econSnap);
 
-    // 2. Prompt amb instruccions per no tallar-se
+    // 2. Prompt per garantir 3 vins i text llarg
     const promptSystem = `Ets un Sommelier d'elit. Respon en ${idiomaReal}. 
     Escriu una recomanació de unes 300 paraules. Sigues molt descriptiu.
     
-    FORMAT ESTRICTE:
-    - Vi: <span class="nom-vi-destacat">NOM</span>, DO: <span class="text-destacat-groc">DO</span>.
-    
-    IMPORTANT: Has de triar EXACTAMENT 3 vins (2 de gama alta i 1 econòmic). 
-    Assegura't de tancar sempre el JSON correctament. No et quedis a mitges.
-    
+    REGLA D'OR:
+    - Tria EXACTAMENT 3 vins de la llista (2 alta gama, 1 econòmic).
+    - Usa la URL de la "imatge" tal qual, sense canviar ni una lletra.
+    - Format HTML: <span class="nom-vi-destacat">NOM</span> i <span class="text-destacat-groc">DO</span>.
+
     JSON OBLIGATORI: {"explicacio": "...", "vins_triats": [{"nom": "...", "imatge": "..."}]}`;
 
     const groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -73,23 +83,22 @@ module.exports = async (req, res) => {
         response_format: { type: "json_object" },
         messages: [
           { role: 'system', content: promptSystem },
-          { role: 'user', content: `Consulta: ${pregunta}. Vins reals: ${JSON.stringify({alta: llistaAlta, econ: llistaEcon})}` }
+          { role: 'user', content: `Consulta: ${pregunta}. Vins reals amb foto: ${JSON.stringify({alta: llistaAlta, econ: llistaEcon})}` }
         ],
-        temperature: 0.4 // Temperatura baixa per evitar que la IA s'inventi coses
+        temperature: 0.2 // Baixem la temperatura per a que sigui més precís amb les dades
       })
     });
 
     const data = await groqResponse.json();
     const contingut = JSON.parse(data.choices[0].message.content);
     
-    // Forcem que sempre enviï 3 vins si n'ha triat menys per error
-    const vinsFinals = (contingut.vins_triats || []).slice(0, 3);
-
     res.status(200).json({ 
-      resposta: `${contingut.explicacio} ||| ${JSON.stringify(vinsFinals)}` 
+      resposta: `${contingut.explicacio} ||| ${JSON.stringify(contingut.vins_triats.slice(0, 3))}` 
     });
 
   } catch (error) {
-    res.status(200).json({ resposta: `Error en la selecció. ||| []` });
+    res.status(200).json({ 
+      resposta: `El sommelier està seleccionant el millor maridatge. ||| []` 
+    });
   }
 };

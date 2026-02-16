@@ -25,16 +25,13 @@ module.exports = async (req, res) => {
 
     const paraulesClau = p.split(/[ ,.!?]+/).filter(w => w.length > 3);
 
-    // 1. Consultes a Firebase (pujem el límit per trobar millors coincidències)
-    let refAlta = db.collection('cercavins').where('preu', '>', 35);
-    let refEcon = db.collection('cercavins').where('preu', '>=', 7).where('preu', '<=', 18);
-
+    // 1. Busquem més vins (límit 100) per garantir que en trobem amb imatge
     const [premSnap, econSnap] = await Promise.all([
-      refAlta.limit(100).get(),
-      refEcon.limit(100).get()
+      db.collection('cercavins').where('preu', '>', 35).limit(100).get(),
+      db.collection('cercavins').where('preu', '>=', 7).where('preu', '<=', 18).limit(100).get()
     ]);
 
-    // 2. Processament amb validació estricta d'imatge
+    // 2. FILTRATGE CRÍTIC D'IMATGES
     const processarVins = (snap) => {
       return snap.docs
         .map(doc => {
@@ -42,15 +39,17 @@ module.exports = async (req, res) => {
           return {
             nom: d.nom,
             do: d.do || "DO",
-            imatge: d.imatge || "", // Agafem la URL real
-            desc: `${d.nom} de la DO ${d.do}`
+            imatge: d.imatge || "", // Agafem la URL
+            desc: `${d.nom} ${d.do} ${d.tipus || ''} ${d.varietat || ''}`.toLowerCase()
           };
         })
         .filter(v => {
-          // NOMÉS vins amb imatge que no siguin de Vila Viniteca
-          if (!v.imatge || v.imatge.length < 10 || v.do === "Vila Viniteca") return false;
+          // REGLA D'OR: Si no té imatge vàlida o és Vila Viniteca, fora.
+          const teImatge = v.imatge && v.imatge.startsWith('http');
+          if (!teImatge || v.do === "Vila Viniteca") return false;
+          
           if (paraulesClau.length === 0) return true;
-          return paraulesClau.some(clau => v.desc.toLowerCase().includes(clau));
+          return paraulesClau.some(clau => v.desc.includes(clau));
         })
         .sort(() => Math.random() - 0.5)
         .slice(0, 15);
@@ -59,19 +58,18 @@ module.exports = async (req, res) => {
     const llistaAlta = processarVins(premSnap);
     const llistaEcon = processarVins(econSnap);
 
-    // 3. Prompt amb instruccions de longitud i imatges
+    // 3. PROMPT ANTI-INVENCIÓ
     const promptSystem = `Ets un Sommelier d'elit. 
     IDIOMA: Respon en ${idiomaReal}.
     
-    OBJECTIU: Escriu una recomanació MAGISTRAL d'unes 300 paraules. Explica el perquè del maridatge, les notes de tast i la zona geogràfica. Sigues molt descriptiu.
-    
-    FORMAT: 
-    - Vi: <span class="nom-vi-destacat">NOM</span>
-    - DO: <span class="text-destacat-groc">DO</span>
-    
-    IMPORTANT: Tria 3 vins del llistat proporcionat. Has d'usar la URL exacta de "imatge" que t'envio. No inventis noms de vins.
-    
-    Vins: ${JSON.stringify({ alta: llistaAlta, econ: llistaEcon })}
+    INSTRUCCIONS:
+    - Escriu una recomanació MAGISTRAL de 300 paraules. Sigues expert i apassionat.
+    - REGLA D'OR: Només pots triar vins del llistat JSON que t'envio.
+    - IMATGES: Has de copiar la URL exacta del camp "imatge". No inventis res.
+    - FORMAT: Vi en <span class="nom-vi-destacat"> i DO en <span class="text-destacat-groc">.
+
+    VINS DISPONIBLES (TRIATS DE BBDD):
+    ${JSON.stringify({ alta: llistaAlta, econ: llistaEcon })}
 
     JSON OBLIGATORI: {"explicacio": "...", "vins_triats": [{"nom": "...", "imatge": "..."}]}`;
 
@@ -86,20 +84,21 @@ module.exports = async (req, res) => {
         response_format: { type: "json_object" },
         messages: [
           { role: 'system', content: promptSystem },
-          { role: 'user', content: `Pregunta: ${pregunta}` }
+          { role: 'user', content: `Consulta: ${pregunta}` }
         ],
-        temperature: 0.6
+        temperature: 0.5
       })
     });
 
     const data = await groqResponse.json();
     const contingut = JSON.parse(data.choices[0].message.content);
     
+    // Retornem els vins triats amb la seva imatge real de BBDD
     res.status(200).json({ 
       resposta: `${contingut.explicacio} ||| ${JSON.stringify(contingut.vins_triats.slice(0, 3))}` 
     });
 
   } catch (error) {
-    res.status(200).json({ resposta: `Error en la selecció. ||| []` });
+    res.status(200).json({ resposta: `Error en el tast. ||| []` });
   }
 };

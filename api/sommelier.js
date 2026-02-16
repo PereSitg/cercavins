@@ -23,34 +23,33 @@ module.exports = async (req, res) => {
     const codiClient = (idioma || 'ca').toLowerCase().slice(0, 2);
     const idiomaReal = langMap[codiClient] || 'CATALÀ';
 
-    const paraulesClau = p.split(/[ ,.!?]+/).filter(w => w.length > 3);
-
-    // 1. Busquem més vins (límit 100) per garantir que en trobem amb imatge
+    // 1. Cercar 100 vins per tenir varietat
     const [premSnap, econSnap] = await Promise.all([
       db.collection('cercavins').where('preu', '>', 35).limit(100).get(),
       db.collection('cercavins').where('preu', '>=', 7).where('preu', '<=', 18).limit(100).get()
     ]);
 
-    // 2. FILTRATGE CRÍTIC D'IMATGES
+    // 2. Processar i crear un mapa de referència (ID -> Dades)
+    const mapaVins = {};
     const processarVins = (snap) => {
       return snap.docs
         .map(doc => {
           const d = doc.data();
-          return {
+          const id = doc.id;
+          const vi = {
+            id: id,
             nom: d.nom,
             do: d.do || "DO",
-            imatge: d.imatge || "", // Agafem la URL
+            imatge: d.imatge || "",
             desc: `${d.nom} ${d.do} ${d.tipus || ''} ${d.varietat || ''}`.toLowerCase()
           };
+          if (vi.imatge && vi.imatge.startsWith('http') && vi.do !== "Vila Viniteca") {
+             mapaVins[id] = vi; // Guardem al mapa per recuperar-lo després
+             return vi;
+          }
+          return null;
         })
-        .filter(v => {
-          // REGLA D'OR: Si no té imatge vàlida o és Vila Viniteca, fora.
-          const teImatge = v.imatge && v.imatge.startsWith('http');
-          if (!teImatge || v.do === "Vila Viniteca") return false;
-          
-          if (paraulesClau.length === 0) return true;
-          return paraulesClau.some(clau => v.desc.includes(clau));
-        })
+        .filter(v => v !== null)
         .sort(() => Math.random() - 0.5)
         .slice(0, 15);
     };
@@ -58,20 +57,18 @@ module.exports = async (req, res) => {
     const llistaAlta = processarVins(premSnap);
     const llistaEcon = processarVins(econSnap);
 
-    // 3. PROMPT ANTI-INVENCIÓ
-    const promptSystem = `Ets un Sommelier d'elit. 
-    IDIOMA: Respon en ${idiomaReal}.
+    // 3. Prompt: Només enviem ID, NOM i DO a la IA (no la URL, per no confondre-la)
+    const llistaPerIA = [...llistaAlta, ...llistaEcon].map(v => ({ id: v.id, nom: v.nom, do: v.do }));
+
+    const promptSystem = `Ets un Sommelier d'elit. Respon en ${idiomaReal}.
+    OBJECTIU: Escriu una recomanació MAGISTRAL d'unes 300 paraules. 
+    FORMAT: Vi en <span class="nom-vi-destacat"> i DO en <span class="text-destacat-groc">.
     
-    INSTRUCCIONS:
-    - Escriu una recomanació MAGISTRAL de 300 paraules. Sigues expert i apassionat.
-    - REGLA D'OR: Només pots triar vins del llistat JSON que t'envio.
-    - IMATGES: Has de copiar la URL exacta del camp "imatge". No inventis res.
-    - FORMAT: Vi en <span class="nom-vi-destacat"> i DO en <span class="text-destacat-groc">.
+    Tria 3 vins del llistat. És OBLIGATORI que retornis l'ID del vi que has triat.
+    
+    VINS: ${JSON.stringify(llistaPerIA)}
 
-    VINS DISPONIBLES (TRIATS DE BBDD):
-    ${JSON.stringify({ alta: llistaAlta, econ: llistaEcon })}
-
-    JSON OBLIGATORI: {"explicacio": "...", "vins_triats": [{"nom": "...", "imatge": "..."}]}`;
+    JSON OBLIGATORI: {"explicacio": "...", "ids_triats": ["id1", "id2", "id3"]}`;
 
     const groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
@@ -82,23 +79,26 @@ module.exports = async (req, res) => {
       body: JSON.stringify({
         model: 'llama-3.1-8b-instant', 
         response_format: { type: "json_object" },
-        messages: [
-          { role: 'system', content: promptSystem },
-          { role: 'user', content: `Consulta: ${pregunta}` }
-        ],
-        temperature: 0.5
+        messages: [ { role: 'system', content: promptSystem }, { role: 'user', content: pregunta } ],
+        temperature: 0.6
       })
     });
 
     const data = await groqResponse.json();
     const contingut = JSON.parse(data.choices[0].message.content);
     
-    // Retornem els vins triats amb la seva imatge real de BBDD
+    // 4. RECUPERACIÓ REAL DE LES IMATGES (Aquí està la clau)
+    // Busquem al nostre mapa els IDs que la IA ha triat
+    const vinsFinals = (contingut.ids_triats || []).map(id => {
+       const v = mapaVins[id];
+       return v ? { nom: v.nom, imatge: v.imatge } : null;
+    }).filter(v => v !== null);
+
     res.status(200).json({ 
-      resposta: `${contingut.explicacio} ||| ${JSON.stringify(contingut.vins_triats.slice(0, 3))}` 
+      resposta: `${contingut.explicacio} ||| ${JSON.stringify(vinsFinals)}` 
     });
 
   } catch (error) {
-    res.status(200).json({ resposta: `Error en el tast. ||| []` });
+    res.status(200).json({ resposta: `Error en el servei. ||| []` });
   }
 };

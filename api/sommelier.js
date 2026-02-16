@@ -24,13 +24,13 @@ module.exports = async (req, res) => {
     const codiClient = (idioma || 'ca').toLowerCase().slice(0, 2);
     const idiomaReal = langMap[codiClient] || 'CATALÀ';
 
-    // 2. Extracció de paraules clau (raïm, països, regions)
+    // 2. Extracció de paraules clau per al filtre intel·ligent
     const paraulesClau = p.split(/[ ,.!?]+/).filter(w => w.length > 3);
 
-    // 3. Recuperació massiva per tenir on triar (Límit 50 per categoria)
+    // 3. Recuperació de vins (Pujem el límit per tenir més varietat global)
     const [premSnap, econSnap] = await Promise.all([
-      db.collection('cercavins').where('preu', '>', 35).limit(50).get(),
-      db.collection('cercavins').where('preu', '>=', 7).where('preu', '<=', 18).limit(50).get()
+      db.collection('cercavins').where('preu', '>', 35).limit(60).get(),
+      db.collection('cercavins').where('preu', '>=', 7).where('preu', '<=', 18).limit(60).get()
     ]);
 
     const filtrarVins = (snap) => {
@@ -40,37 +40,44 @@ module.exports = async (req, res) => {
           return { 
             nom: d.nom, 
             imatge: d.imatge, 
-            do_real: d.do || "DO",
+            do: d.do || "DO",
             varietat: d.varietat || "",
-            tipus: d.tipus || ""
+            tipus: d.tipus || "",
+            // Creem una cadena de text perquè la IA pugui "buscar" dins del vi
+            info: `${d.nom} ${d.do} ${d.varietat} ${d.tipus}`.toLowerCase()
           };
         })
         .filter(v => {
-          // Seguretat: Ha de tenir imatge i no ser Vila Viniteca
-          if (!v.imatge || v.do_real === "Vila Viniteca") return false;
+          if (!v.imatge || v.do === "Vila Viniteca" || v.do === "Desconeguda") return false;
           
-          // Filtre intel·ligent: si l'usuari busca algo específic, mirem si el vi ho té
+          // Si l'usuari demana percebes (marisc), busquem blancs o paraules clau
           if (paraulesClau.length === 0) return true;
-          const textVi = `${v.nom} ${v.do_real} ${v.varietat} ${v.tipus}`.toLowerCase();
-          return paraulesClau.some(clau => textVi.includes(clau));
+          return paraulesClau.some(clau => v.info.includes(clau)) || (p.includes('percebe') && v.tipus === 'Blanc');
         })
         .sort(() => Math.random() - 0.5)
-        .slice(0, 15); // Passar-ne 15 a la IA és el punt ideal
+        .slice(0, 15);
     };
 
     const llistaAlta = filtrarVins(premSnap);
     const llistaEcon = filtrarVins(econSnap);
 
-    // 4. PROMPT (Mantenint l'estructura que t'ha funcionat)
+    // 4. PROMPT REFORÇAT PER A TEXT LLARG I IMATGES REALS
     const promptSystem = `Ets un Sommelier d'elit. Respon en ${idiomaReal}. 
-    Escriu una recomanació MAGISTRAL de unes 300 paraules. Sigues molt descriptiu i expert.
+    
+    INSTRUCCIONS DE CONTINGUT:
+    - Escriu una recomanació MAGISTRAL i APASSIONADA d'unes 300 paraules.
+    - Explica detalladament el maridatge (per què aquest vi va bé amb el plat).
+    - Parla de les notes de tast (fruita, acidesa, fusta...).
     
     REGLA D'OR DE FORMAT:
-    - Cada vegada que mencionis un VI, usa: <span class="nom-vi-destacat">NOM DEL VI</span>.
-    - Cada vegada que mencionis una DO, usa: <span class="text-destacat-groc">NOM DO</span>.
-
-    IMPORTANT: Tria exactament 3 vins del JSON i usa la seva "imatge" tal qual apareix. No inventis res.
-    JSON OBLIGATORI: {"explicacio": "Text llarg amb els span HTML...", "vins_triats": [{"nom": "...", "imatge": "..."}]}`;
+    - Nom del vi: <span class="nom-vi-destacat">NOM</span>.
+    - DO o Regió: <span class="text-destacat-groc">DO</span>.
+    
+    IMPORTANTÍSSIM PER A LES IMATGES:
+    - Tria exactament 3 vins del JSON (2 alta gama, 1 econòmic).
+    - HAS D'USAR LA URL D'IMATGE EXACTA QUE APLEGA AL JSON. No inventis noms genèrics.
+    
+    JSON OBLIGATORI: {"explicacio": "Text llarg amb HTML...", "vins_triats": [{"nom": "...", "imatge": "..."}]}`;
 
     const groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
@@ -85,7 +92,7 @@ module.exports = async (req, res) => {
           { role: 'system', content: promptSystem },
           { role: 'user', content: `Consulta: ${pregunta}. Vins disponibles: ${JSON.stringify({alta: llistaAlta, econ: llistaEcon})}` }
         ],
-        temperature: 0.4
+        temperature: 0.5
       })
     });
 
@@ -94,9 +101,8 @@ module.exports = async (req, res) => {
 
     const contingut = JSON.parse(data.choices[0].message.content);
     
-    // 5. Resposta Final
     const vinsFinals = (contingut.vins_triats || []).slice(0, 3);
-    const textFinal = contingut.explicacio || "Aquí tens la meva selecció...";
+    const textFinal = contingut.explicacio;
 
     res.status(200).json({ 
       resposta: `${textFinal} ||| ${JSON.stringify(vinsFinals)}` 
@@ -105,7 +111,7 @@ module.exports = async (req, res) => {
   } catch (error) {
     console.error("ERROR:", error.message);
     res.status(200).json({ 
-      resposta: `Ho sento, el sommelier està ocupat. (Error: ${error.message}) ||| []` 
+      resposta: `Ho sento, el sommelier està seleccionant el millor maridatge. ||| []` 
     });
   }
 };

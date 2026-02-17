@@ -21,13 +21,11 @@
             overflow-x: hidden;
         }
 
-        /* ── Header ── */
         header { text-align: center; padding: 60px 20px 30px; width: 100%; }
         header h1 { font-size: clamp(2.2rem, 8vw, 3.5rem); font-weight: 800; }
         .ia-focus { color: var(--gold); }
         #subtitol { margin-top: 10px; opacity: 0.85; font-size: 1rem; }
 
-        /* ── Search ── */
         .search-area { width: 95%; max-width: 700px; margin: 20px auto 0; }
         .input-wrapper { width: 100%; position: relative; display: flex; align-items: center; }
         #chat-input {
@@ -50,7 +48,6 @@
             100% { box-shadow: 0 0 0 0 rgba(212,175,55,0); }
         }
 
-        /* ── Response container ── */
         #response-container {
             width: 100%; margin-top: 30px;
             background: rgba(255,255,255,0.07);
@@ -59,10 +56,8 @@
             box-shadow: 0 10px 40px rgba(0,0,0,0.3);
         }
 
-        /* ── Loading ── */
         .loading { text-align: center; padding: 20px; opacity: 0.8; font-style: italic; }
 
-        /* ── Text blocks ── */
         .bloc-text { font-size: 1.05rem; line-height: 1.8; margin-bottom: 20px; }
         .etiqueta {
             display: inline-block; font-size: 0.7rem; font-weight: 800;
@@ -71,17 +66,13 @@
             border-radius: 20px; padding: 3px 12px; margin-bottom: 12px;
         }
 
-        /* ── Vi principal (cas "vi") ── */
         .vi-hero {
             display: flex; gap: 24px; align-items: flex-start;
             background: var(--card-bg); border-radius: 16px;
             padding: 24px; margin-bottom: 24px;
             border: 1px solid rgba(255,255,255,0.1);
         }
-        .vi-hero img {
-            width: 120px; height: 200px; object-fit: contain;
-            flex-shrink: 0; border-radius: 8px;
-        }
+        .vi-hero img { width: 120px; height: 200px; object-fit: contain; flex-shrink: 0; border-radius: 8px; }
         .vi-hero-info h2 { font-size: 1.3rem; font-weight: 800; color: var(--gold); margin-bottom: 6px; }
         .vi-hero-info .do-badge {
             font-size: 0.75rem; background: var(--gold-dim); color: var(--gold);
@@ -95,7 +86,6 @@
             font-size: 0.85rem;
         }
 
-        /* ── Plat ── */
         .plat-header {
             background: var(--card-bg); border-radius: 16px; padding: 20px 24px;
             margin-bottom: 24px; border-left: 3px solid var(--gold);
@@ -103,7 +93,6 @@
         .plat-header h2 { font-size: 1.2rem; font-weight: 800; color: var(--gold); margin-bottom: 8px; }
         .plat-header p { font-size: 0.95rem; line-height: 1.7; opacity: 0.9; }
 
-        /* ── Grid de vins ── */
         .vins-grid {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
@@ -118,14 +107,11 @@
             transition: transform 0.2s, border-color 0.2s;
         }
         .vi-card:hover { transform: translateY(-3px); border-color: var(--gold); }
-        .vi-card img {
-            height: 160px; max-width: 90%; object-fit: contain; border-radius: 6px;
-        }
+        .vi-card img { height: 160px; max-width: 90%; object-fit: contain; border-radius: 6px; }
         .vi-card .nom { font-size: 0.85rem; font-weight: 800; color: var(--gold); line-height: 1.3; }
         .vi-card .do  { font-size: 0.75rem; opacity: 0.6; margin-top: 2px; }
         .vi-card .justificacio { font-size: 0.8rem; opacity: 0.85; line-height: 1.5; margin-top: 4px; }
 
-        /* ── Consell sommelier ── */
         .consell {
             margin-top: 24px; padding: 16px 20px;
             background: var(--gold-dim); border-radius: 12px;
@@ -134,10 +120,8 @@
         }
         .consell::before { content: '🍷 '; }
 
-        /* ── Error ── */
         .error-msg { text-align: center; padding: 20px; opacity: 0.8; color: #ff9999; }
 
-        /* ── Botó clear ── */
         #btn-borrar {
             display: block; margin: 28px auto 0;
             padding: 12px 32px; border-radius: 50px;
@@ -171,22 +155,29 @@
 <footer><p id="footer-text"></p></footer>
 
 <script>
-// ── i18n ──────────────────────────────────────────────────────────────────────
 const i18n = {
-    ca: { subtitol: "El teu cercador de vins intel·ligent", placeholder: "Maridatge, un plat o un vi...", loading: "Consultant el celler...", btn: "Nova consulta", footer: "Pere Badia i Lorenz © 2026 · Tots els drets reservats", imgFallback: "Imatge no disponible" },
-    es: { subtitol: "Tu buscador de vinos inteligente",     placeholder: "Maridaje, un plato o un vino...", loading: "Consultando bodega...",  btn: "Nueva consulta",  footer: "Pere Badia i Lorenz © 2026 · Todos los derechos reservados", imgFallback: "Imagen no disponible" },
-    fr: { subtitol: "Votre moteur de recherche de vins",    placeholder: "Accord mets-vins, un plat...",  loading: "Consultation cave...",    btn: "Nouvelle recherche", footer: "Pere Badia i Lorenz © 2026 · Tous droits réservés", imgFallback: "Image non disponible" },
-    en: { subtitol: "Your intelligent wine search engine",  placeholder: "Pairing, a dish or a wine...", loading: "Consulting the cellar...", btn: "New search",      footer: "Pere Badia i Lorenz © 2026 · All rights reserved", imgFallback: "Image not available" },
+    ca: { subtitol: "El teu cercador de vins intel·ligent", placeholder: "Maridatge, un plat o un vi...", loading: "Consultant el celler...", btn: "Nova consulta", footer: "Pere Badia i Lorenz © 2026 · Tots els drets reservats" },
+    es: { subtitol: "Tu buscador de vinos inteligente",     placeholder: "Maridaje, un plato o un vino...", loading: "Consultando bodega...",  btn: "Nueva consulta",  footer: "Pere Badia i Lorenz © 2026 · Todos los derechos reservados" },
+    fr: { subtitol: "Votre moteur de recherche de vins",    placeholder: "Accord mets-vins, un plat...",  loading: "Consultation cave...",    btn: "Nouvelle recherche", footer: "Pere Badia i Lorenz © 2026 · Tous droits réservés" },
+    en: { subtitol: "Your intelligent wine search engine",  placeholder: "Pairing, a dish or a wine...", loading: "Consulting the cellar...", btn: "New search",      footer: "Pere Badia i Lorenz © 2026 · All rights reserved" },
 };
 
 const userLang = (navigator.language || 'ca').split('-')[0];
 const t = i18n[userLang] || i18n['ca'];
 
 const $ = id => document.getElementById(id);
-$('subtitol').textContent  = t.subtitol;
+$('subtitol').textContent   = t.subtitol;
 $('chat-input').placeholder = t.placeholder;
 $('footer-text').textContent = t.footer;
-$('btn-borrar').textContent = t.btn;
+$('btn-borrar').textContent  = t.btn;
+
+// ── Filtre DO: mai mostrem noms de botiga ─────────────────────────────────────
+const PARAULES_BOTIGA = ['viniteca', 'vila', 'botiga', 'shop', 'store', 'bodega'];
+function doValida(do_str) {
+    if (!do_str || !do_str.trim()) return '';
+    const d = do_str.toLowerCase();
+    return PARAULES_BOTIGA.some(k => d.includes(k)) ? '' : do_str.trim();
+}
 
 // ── Imatge amb fallback ───────────────────────────────────────────────────────
 const IMG_FALLBACK = 'https://images.vivino.com/thumbs/default_label_600x600.png';
@@ -195,9 +186,10 @@ function imgTag(url, alt) {
     return `<img src="${src}" alt="${alt || ''}" onerror="this.src='${IMG_FALLBACK}'">`;
 }
 
-// ── Renderers per cada intenció ───────────────────────────────────────────────
+// ── Renderers ─────────────────────────────────────────────────────────────────
 function renderVi(d) {
-    const vi = d.vi_principal || {};
+    const vi  = d.vi_principal || {};
+    const do_ = doValida(vi.do);
     const plats = (d.maridatge_suggerit || []).map(p => `<span>${p}</span>`).join('');
     return `
         <div class="etiqueta">Vi</div>
@@ -205,7 +197,7 @@ function renderVi(d) {
             ${imgTag(vi.imatge, vi.nom)}
             <div class="vi-hero-info">
                 <h2>${vi.nom || ''}</h2>
-                <span class="do-badge">${vi.do || ''}</span>
+                ${do_ ? `<span class="do-badge">${do_}</span>` : ''}
                 <p>${d.descripcio || ''}</p>
                 ${plats ? `<div class="maridatge-list">${plats}</div>` : ''}
             </div>
@@ -214,13 +206,16 @@ function renderVi(d) {
 
 function renderPlat(d) {
     const plat = d.plat || {};
-    const cardsHtml = (d.vins_recomanats || []).slice(0, 3).map(v => `
+    const cardsHtml = (d.vins_recomanats || []).slice(0, 3).map(v => {
+        const do_ = doValida(v.do);
+        return `
         <div class="vi-card">
             ${imgTag(v.imatge, v.nom)}
             <div class="nom">${v.nom || ''}</div>
-            <div class="do">${v.do || ''}</div>
+            ${do_ ? `<div class="do">${do_}</div>` : ''}
             <div class="justificacio">${v.justificacio || ''}</div>
-        </div>`).join('');
+        </div>`;
+    }).join('');
 
     return `
         <div class="etiqueta">Plat típic</div>
@@ -232,13 +227,16 @@ function renderPlat(d) {
 }
 
 function renderMaridatge(d) {
-    const cardsHtml = (d.vins_recomanats || []).slice(0, 3).map(v => `
+    const cardsHtml = (d.vins_recomanats || []).slice(0, 3).map(v => {
+        const do_ = doValida(v.do);
+        return `
         <div class="vi-card">
             ${imgTag(v.imatge, v.nom)}
             <div class="nom">${v.nom || ''}</div>
-            <div class="do">${v.do || ''}</div>
+            ${do_ ? `<div class="do">${do_}</div>` : ''}
             <div class="justificacio">${v.justificacio || ''}</div>
-        </div>`).join('');
+        </div>`;
+    }).join('');
 
     const consell = d.consell_sommelier
         ? `<div class="consell">${d.consell_sommelier}</div>` : '';
@@ -253,30 +251,22 @@ function renderMaridatge(d) {
 // ── Renderitzador principal ───────────────────────────────────────────────────
 function renderResposta(data) {
     const output = $('output');
-
-    if (data.error) {
-        output.innerHTML = `<div class="error-msg">${data.error}</div>`;
-        return;
-    }
+    if (data.error) { output.innerHTML = `<div class="error-msg">${data.error}</div>`; return; }
 
     const r = data.resposta;
-    if (!r || !r.tipus_resposta) {
-        output.innerHTML = `<div class="error-msg">No hem pogut processar la resposta.</div>`;
-        return;
-    }
+    if (!r || !r.tipus_resposta) { output.innerHTML = `<div class="error-msg">No hem pogut processar la resposta.</div>`; return; }
 
     switch (r.tipus_resposta) {
-        case 'vi':       output.innerHTML = renderVi(r);       break;
-        case 'plat':     output.innerHTML = renderPlat(r);     break;
+        case 'vi':        output.innerHTML = renderVi(r);        break;
+        case 'plat':      output.innerHTML = renderPlat(r);      break;
         case 'maridatge': output.innerHTML = renderMaridatge(r); break;
-        default:         output.innerHTML = `<div class="error-msg">Tipus de resposta desconegut.</div>`;
+        default:          output.innerHTML = `<div class="error-msg">Tipus de resposta desconegut.</div>`;
     }
 }
 
-// ── Fetch principal ───────────────────────────────────────────────────────────
+// ── Fetch ─────────────────────────────────────────────────────────────────────
 async function processarCerca(pregunta) {
     if (!pregunta || !pregunta.trim()) return;
-
     $('response-container').style.display = 'block';
     $('output').innerHTML = `<div class="loading">🍷 ${t.loading}</div>`;
 
@@ -286,22 +276,16 @@ async function processarCerca(pregunta) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ pregunta: pregunta.trim(), idioma: userLang }),
         });
-
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = await res.json();
-        renderResposta(data);
-
+        renderResposta(await res.json());
     } catch (err) {
-        console.error('[frontend] Error:', err);
+        console.error('[frontend]', err);
         $('output').innerHTML = `<div class="error-msg">Error de connexió. Torna a intentar-ho.</div>`;
     }
 }
 
 // ── Events ────────────────────────────────────────────────────────────────────
-$('chat-input').addEventListener('keypress', e => {
-    if (e.key === 'Enter') processarCerca($('chat-input').value);
-});
-
+$('chat-input').addEventListener('keypress', e => { if (e.key === 'Enter') processarCerca($('chat-input').value); });
 $('btn-borrar').addEventListener('click', () => {
     $('response-container').style.display = 'none';
     $('chat-input').value = '';
@@ -309,23 +293,14 @@ $('btn-borrar').addEventListener('click', () => {
 });
 
 // ── Veu ───────────────────────────────────────────────────────────────────────
-const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-if (SpeechRecognition) {
-    const recognition = new SpeechRecognition();
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+if (SR) {
+    const rec = new SR();
     const langMap = { ca: 'ca-ES', es: 'es-ES', fr: 'fr-FR', en: 'en-US' };
-    $('btn-veu').addEventListener('click', () => {
-        recognition.lang = langMap[userLang] || 'ca-ES';
-        recognition.start();
-        $('btn-veu').classList.add('listening');
-    });
-    recognition.onresult = e => {
-        const text = e.results[0][0].transcript;
-        $('chat-input').value = text;
-        $('btn-veu').classList.remove('listening');
-        processarCerca(text);
-    };
-    recognition.onend = () => $('btn-veu').classList.remove('listening');
-    recognition.onerror = () => $('btn-veu').classList.remove('listening');
+    $('btn-veu').addEventListener('click', () => { rec.lang = langMap[userLang] || 'ca-ES'; rec.start(); $('btn-veu').classList.add('listening'); });
+    rec.onresult = e => { const text = e.results[0][0].transcript; $('chat-input').value = text; $('btn-veu').classList.remove('listening'); processarCerca(text); };
+    rec.onend    = () => $('btn-veu').classList.remove('listening');
+    rec.onerror  = () => $('btn-veu').classList.remove('listening');
 } else {
     $('btn-veu').style.display = 'none';
 }

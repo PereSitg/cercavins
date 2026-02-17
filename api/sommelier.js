@@ -1,6 +1,5 @@
 const admin = require('firebase-admin');
 
-// ─── Firebase init (singleton) ────────────────────────────────────────────────
 if (!admin.apps.length) {
   admin.initializeApp({
     credential: admin.credential.cert({
@@ -12,11 +11,10 @@ if (!admin.apps.length) {
 }
 const db = admin.firestore();
 
-// ─── Constants ────────────────────────────────────────────────────────────────
 const LANG_MAP = { ca: 'CATALÀ', es: 'CASTELLANO', en: 'ENGLISH', fr: 'FRANÇAIS' };
 const MAX_VINS_CONTEXT = 25;
 
-// ─── 1. DETECCIÓ D'INTENCIÓ (sense IA, gratuït) ──────────────────────────────
+// ─── 1. DETECCIÓ D'INTENCIÓ ───────────────────────────────────────────────────
 function detectarIntencio(p) {
   const text = p.toLowerCase();
 
@@ -27,7 +25,6 @@ function detectarIntencio(p) {
     'chardonnay', 'riesling', 'syrah', 'pinot',
   ];
 
-  // Plats típics — incloem "xato" i altres plats catalans/mediterranis
   const indicadorsPlat = [
     'xato', 'xató', 'paella', 'cocido', 'gazpacho', 'tortilla', 'pulpo',
     'jamón', 'fabada', 'escalivada', 'fideuà', 'calçots', 'morcilla',
@@ -47,23 +44,27 @@ function detectarIntencio(p) {
     'suggereix', 'recomienda', 'recomana',
   ];
 
-  const téIndicadorVi = indicadorsVi.some(k => text.includes(k));
-  const téIndicadorPlat = indicadorsPlat.some(k => text.includes(k));
-  const téIndicadorMaridatge = indicadorsMaridatge.some(k => text.includes(k));
-
-  // Un plat sempre guanya (sigui o no amb "maridar")
-  if (téIndicadorPlat) return 'plat';
-  if (téIndicadorMaridatge) return 'maridatge';
-  if (téIndicadorVi) return 'vi';
-  return 'maridatge'; // Per defecte
+  if (indicadorsPlat.some(k => text.includes(k))) return 'plat';
+  if (indicadorsMaridatge.some(k => text.includes(k))) return 'maridatge';
+  if (indicadorsVi.some(k => text.includes(k))) return 'vi';
+  return 'maridatge';
 }
 
-// ─── 2. QUERIES FIREBASE ──────────────────────────────────────────────────────
-// NOTA: La BD té tots els documents amb tipus:"vi" sense distinció blanc/negre/rosat.
-// Per tant NO filtrem per tipus — carreguem mostres variades i deixem que la IA triï.
+// ─── 2. MAPPER — sense botiga, sense camps innecessaris ───────────────────────
+function mapVi(d) {
+  return {
+    nom:    d.nom    || '',
+    do:     d.do     || '',
+    preu:   d.preu   || null,
+    imatge: d.imatge || '',
+    // NO incloem: botiga, data_pujada, tipus (tots "vi"), ni cap altre camp
+  };
+}
 
+// ─── 3. QUERIES FIREBASE ──────────────────────────────────────────────────────
+
+// Mostra general variada (per a maridatge i plat)
 async function buscarVinsGeneral() {
-  // Dues queries offsetades per tenir varietat de preus i noms
   const [snap1, snap2] = await Promise.all([
     db.collection('cercavins').orderBy('nom').limit(MAX_VINS_CONTEXT).get(),
     db.collection('cercavins').orderBy('preu', 'desc').limit(MAX_VINS_CONTEXT).get(),
@@ -72,100 +73,98 @@ async function buscarVinsGeneral() {
   const map = new Map();
   [...snap1.docs, ...snap2.docs].forEach(doc => {
     const d = doc.data();
-    if (d.imatge && !map.has(d.nom)) {
-      map.set(d.nom, mapVi(d));
-    }
+    if (d.imatge && !map.has(d.nom)) map.set(d.nom, mapVi(d));
   });
 
-  // Barregem per tenir varietat i tallem
   return [...map.values()].sort(() => Math.random() - 0.5).slice(0, MAX_VINS_CONTEXT);
 }
 
+// Cerca per vi concret: carrega un bloc gran i filtra en memòria per substring
+// Això evita el problema de que "Cune" apareix a la meitat del nom complet
 async function buscarViConcret(pregunta) {
   const stopWords = new Set([
     'que', 'és', 'el', 'la', 'un', 'una', 'del', 'de', 'em', 'pot',
     'pots', 'per', 'i', 'les', 'els', 'quin', 'quina', 'sobre',
-    'vull', 'saber', 'parla', 'explica', 'descriu',
+    'vull', 'saber', 'parla', 'explica', 'descriu', 'vi', 'vino', 'wine',
   ]);
   const paraules = pregunta
     .toLowerCase()
     .split(/[\s,.!?]+/)
     .filter(w => w.length > 2 && !stopWords.has(w));
 
-  const map = new Map();
+  // Carreguem un bloc ampli i filtrem en memòria (Firestore no té full-text search)
+  const snap = await db.collection('cercavins')
+    .orderBy('nom')
+    .limit(200) // Límit prou gran per cobrir la majoria de la col·lecció
+    .get();
 
-  for (const paraula of paraules.slice(0, 4)) {
-    const inicial = paraula.charAt(0).toUpperCase() + paraula.slice(1);
-    try {
-      const snap = await db.collection('cercavins')
-        .orderBy('nom')
-        .startAt(inicial)
-        .endAt(inicial + '\uf8ff')
-        .limit(5)
-        .get();
-      snap.docs.forEach(doc => {
-        const d = doc.data();
-        if (d.imatge) map.set(d.nom, mapVi(d));
-      });
-    } catch (e) { /* ignorem errors de query individual */ }
-  }
+  const tots = snap.docs.map(doc => mapVi(doc.data())).filter(v => v.imatge && v.nom);
 
-  // Fallback: mostra general si no trobem res per nom
-  if (map.size === 0) {
-    const vinsGeneral = await buscarVinsGeneral();
-    vinsGeneral.forEach(v => map.set(v.nom, v));
-  }
-
-  return [...map.values()].slice(0, 15);
-}
-
-// ─── 3. MAPPER DE DADES ───────────────────────────────────────────────────────
-function mapVi(d) {
-  return {
-    nom: d.nom || '',
-    do: d.do || '',
-    tipus: d.tipus || '',
-    preu: d.preu || null,
-    imatge: d.imatge || '',
-  };
-}
-
-// ─── 4. RECONCILIACIÓ D'IMATGES ROBUSTA (fuzzy match) ────────────────────────
-function reconciliarImatges(resultatIA, vinsDisponibles) {
-  const lookupExacte = {};
-  const lookupFuzzy = [];
-
-  vinsDisponibles.forEach(v => {
-    if (v.imatge) {
-      lookupExacte[v.nom.toLowerCase().trim()] = v;
-      lookupFuzzy.push({ vi: v, paraules: v.nom.toLowerCase().split(/\s+/) });
-    }
+  // Filtrem: el nom del vi ha de contenir alguna de les paraules clau
+  const coincidencies = tots.filter(v => {
+    const nomLower = v.nom.toLowerCase();
+    return paraules.some(p => nomLower.includes(p));
   });
+
+  // Si no hi ha coincidències, retornem una mostra general per a que la IA triï
+  if (coincidencies.length === 0) {
+    return tots.sort(() => Math.random() - 0.5).slice(0, 15);
+  }
+
+  return coincidencies.slice(0, 15);
+}
+
+// ─── 4. RECONCILIACIÓ D'IMATGES — lookup per substring bidireccional ─────────
+// Problema: Firebase té "Cune Monopole Clásico 2022" però la IA pot retornar "Cune Monopole"
+// Solució: busquem si el nom de la IA és substring del nom de la BD, o viceversa
+
+function reconciliarImatges(resultatIA, vinsDisponibles) {
+  // Construïm índex: nom en minúscules → imatge
+  const index = vinsDisponibles
+    .filter(v => v.imatge && v.nom)
+    .map(v => ({ nomLower: v.nom.toLowerCase().trim(), imatge: v.imatge, nom: v.nom }));
 
   const trobarImatge = (nomIA) => {
     if (!nomIA) return '';
-    const nomNorm = nomIA.toLowerCase().trim();
+    const nLower = nomIA.toLowerCase().trim();
 
     // 1. Match exacte
-    if (lookupExacte[nomNorm]) return lookupExacte[nomNorm].imatge;
+    const exacte = index.find(v => v.nomLower === nLower);
+    if (exacte) return exacte.imatge;
 
-    // 2. Match parcial: màxim de paraules en comú
-    let millorMatch = null;
+    // 2. Substring: el nom de la IA està contingut dins el nom de la BD
+    //    ex: "Cune Monopole" → troba "Cune Monopole Clásico 2022"
+    const subIA = index.find(v => v.nomLower.includes(nLower) && nLower.length > 4);
+    if (subIA) return subIA.imatge;
+
+    // 3. Substring invers: el nom de la BD està contingut dins el nom de la IA
+    //    ex: la IA retorna el nom complet però la BD el té abreviat
+    const subBD = index.find(v => nLower.includes(v.nomLower) && v.nomLower.length > 4);
+    if (subBD) return subBD.imatge;
+
+    // 4. Paraules clau: comptem paraules en comú (mínim 2 per evitar falsos positius)
+    const paraulesIA = nLower.split(/\s+/).filter(w => w.length > 3);
     let millorScore = 0;
-    const paraulesIA = nomNorm.split(/\s+/).filter(w => w.length > 2);
-    lookupFuzzy.forEach(({ vi, paraules }) => {
-      const score = paraulesIA.filter(p =>
-        paraules.some(vp => vp.includes(p) || p.includes(vp))
-      ).length;
-      if (score > millorScore) { millorScore = score; millorMatch = vi; }
+    let millorImatge = '';
+    index.forEach(v => {
+      const paruelesBD = v.nomLower.split(/\s+/);
+      const score = paraulesIA.filter(p => paruelesBD.some(b => b.includes(p) || p.includes(b))).length;
+      if (score >= 2 && score > millorScore) {
+        millorScore = score;
+        millorImatge = v.imatge;
+      }
     });
+    if (millorImatge) return millorImatge;
 
-    return millorMatch && millorScore > 0 ? millorMatch.imatge : '';
+    return ''; // No trobat → el frontend mostrarà el fallback
   };
 
+  // Apliquem a vi_principal
   if (resultatIA.vi_principal) {
     resultatIA.vi_principal.imatge = trobarImatge(resultatIA.vi_principal.nom);
   }
+
+  // Apliquem a vins_recomanats
   if (Array.isArray(resultatIA.vins_recomanats)) {
     resultatIA.vins_recomanats = resultatIA.vins_recomanats.map(v => ({
       ...v,
@@ -178,9 +177,11 @@ function reconciliarImatges(resultatIA, vinsDisponibles) {
 
 // ─── 5. PROMPTS ───────────────────────────────────────────────────────────────
 function buildPrompt(intencio, idioma, vins, pregunta) {
-  const base = `Ets un sommelier expert. Respon SEMPRE en ${idioma}. Respon ÚNICAMENT amb JSON vàlid, sense cap text fora del JSON.`;
+  const base = `Ets un sommelier expert. Respon SEMPRE en ${idioma}.
+Respon ÚNICAMENT amb JSON vàlid. Cap text fora del JSON.
+IMPORTANT: No mencions mai la botiga d'on prové el vi. Descriu només el vi, la seva DO i les seves característiques.`;
 
-  // Passem nom, do, imatge i preu (mínim necessari) per no saturar el context
+  // Passem NOMÉS nom, do, imatge i preu — sense botiga ni altres camps
   const vinsList = JSON.stringify(
     vins.map(v => ({ nom: v.nom, do: v.do, imatge: v.imatge, preu: v.preu }))
   );
@@ -189,19 +190,19 @@ function buildPrompt(intencio, idioma, vins, pregunta) {
     return {
       system: `${base}
 
-L'usuari pregunta per un vi concret o una marca. Tasca:
-1. Identifica el vi de la llista que millor coincideix amb la consulta.
-2. Escriu una descripció experta (~120 paraules): DO, varietat, notes de tast, temperatura de servei.
+L'usuari pregunta per un vi concret. Tasca:
+1. Identifica el vi de la llista que millor coincideix (pot tenir anyada al nom, busca per marca/productor).
+2. Escriu una descripció experta de ~120 paraules: DO, varietat, notes de tast, temperatura de servei, potencial d'envelliment.
 3. Afegeix 2 suggeriments de plats per maridar.
 
 FORMAT JSON OBLIGATORI:
 {
   "tipus_resposta": "vi",
-  "vi_principal": { "nom": "NOM EXACTE DE LA LLISTA", "do": "...", "imatge": "URL EXACTA DE LA LLISTA" },
-  "descripcio": "text en ${idioma}",
+  "vi_principal": { "nom": "NOM EXACTE TAL COM APAREIX A LA LLISTA", "do": "...", "imatge": "URL EXACTA DE LA LLISTA" },
+  "descripcio": "descripció experta en ${idioma}",
   "maridatge_suggerit": ["plat 1", "plat 2"]
 }`,
-      user: `Vins disponibles: ${vinsList}\n\nConsulta: "${pregunta}"\n\nEls camps "nom" i "imatge" han de ser EXACTAMENT com apareixen a la llista.`,
+      user: `Vins disponibles: ${vinsList}\n\nConsulta: "${pregunta}"\n\nAVÍS: El camp "nom" i "imatge" han de ser EXACTAMENT com apareixen a la llista, sense modificar ni una lletra.`,
     };
   }
 
@@ -210,30 +211,29 @@ FORMAT JSON OBLIGATORI:
       system: `${base}
 
 L'usuari pregunta per un plat típic. Tasca:
-1. Explica breument el plat (~80 paraules): origen, ingredients principals, sabor, textura.
-2. Tria EXACTAMENT 3 vins de la llista i justifica cada elecció en 1 frase.
+1. Explica breument el plat (~80 paraules): origen, ingredients principals, sabor i textura.
+2. Tria EXACTAMENT 3 vins de la llista que maridin perfectament, justificant cada elecció en 1 frase.
 
 FORMAT JSON OBLIGATORI:
 {
   "tipus_resposta": "plat",
   "plat": { "nom": "nom del plat", "descripcio": "descripció en ${idioma}" },
   "vins_recomanats": [
-    { "nom": "NOM EXACTE", "do": "...", "imatge": "URL EXACTA", "justificacio": "frase en ${idioma}" },
-    { "nom": "NOM EXACTE", "do": "...", "imatge": "URL EXACTA", "justificacio": "frase en ${idioma}" },
-    { "nom": "NOM EXACTE", "do": "...", "imatge": "URL EXACTA", "justificacio": "frase en ${idioma}" }
+    { "nom": "NOM EXACTE", "do": "...", "imatge": "URL EXACTA", "justificacio": "1 frase en ${idioma}" },
+    { "nom": "NOM EXACTE", "do": "...", "imatge": "URL EXACTA", "justificacio": "1 frase en ${idioma}" },
+    { "nom": "NOM EXACTE", "do": "...", "imatge": "URL EXACTA", "justificacio": "1 frase en ${idioma}" }
   ]
 }`,
-      user: `Vins disponibles: ${vinsList}\n\nConsulta: "${pregunta}"\n\nEls camps "nom" i "imatge" han de ser EXACTAMENT com apareixen a la llista.`,
+      user: `Vins disponibles: ${vinsList}\n\nConsulta: "${pregunta}"\n\nAVÍS: "nom" i "imatge" han de ser EXACTAMENT com apareixen a la llista.`,
     };
   }
 
-  // Maridatge (default)
   return {
     system: `${base}
 
 L'usuari demana una recomanació de maridatge. Tasca:
 1. Escriu una introducció experta (1-2 frases).
-2. Tria EXACTAMENT 3 vins de la llista i justifica cada un en 1-2 frases.
+2. Tria EXACTAMENT 3 vins de la llista. Per a cada vi, escriu 1-2 frases justificant el maridatge.
 3. Afegeix un consell de sommelier al final (màx 50 paraules).
 
 FORMAT JSON OBLIGATORI:
@@ -247,7 +247,7 @@ FORMAT JSON OBLIGATORI:
   ],
   "consell_sommelier": "text en ${idioma}"
 }`,
-    user: `Vins disponibles: ${vinsList}\n\nConsulta: "${pregunta}"\n\nEls camps "nom" i "imatge" han de ser EXACTAMENT com apareixen a la llista.`,
+    user: `Vins disponibles: ${vinsList}\n\nConsulta: "${pregunta}"\n\nAVÍS: "nom" i "imatge" han de ser EXACTAMENT com apareixen a la llista.`,
   };
 }
 
@@ -271,10 +271,7 @@ async function cridarGroq(systemPrompt, userPrompt) {
     }),
   });
 
-  if (!resp.ok) {
-    const err = await resp.text();
-    throw new Error(`Groq error ${resp.status}: ${err}`);
-  }
+  if (!resp.ok) throw new Error(`Groq error ${resp.status}: ${await resp.text()}`);
 
   const data = await resp.json();
   const raw = data.choices?.[0]?.message?.content;

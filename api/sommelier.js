@@ -51,13 +51,22 @@ function detectarIntencio(p) {
 }
 
 // ─── 2. MAPPER — sense botiga, sense camps innecessaris ───────────────────────
+// Retorna la DO real o string buit si és un nom de botiga
+function netejaDO(do_raw) {
+  if (!do_raw) return '';
+  const d = do_raw.toLowerCase();
+  // Si conté paraules de botiga, descartem el valor
+  const esBotigaOInvalid = ['viniteca', 'vila', 'botiga', 'shop', 'store', 'bodega'].some(k => d.includes(k));
+  return esBotigaOInvalid ? '' : do_raw;
+}
+
 function mapVi(d) {
   return {
     nom:    d.nom    || '',
-    do:     d.do     || '',
+    do:     netejaDO(d.do),
     preu:   d.preu   || null,
     imatge: d.imatge || '',
-    // NO incloem: botiga, data_pujada, tipus (tots "vi"), ni cap altre camp
+    // NO incloem: botiga, data_pujada, tipus, ni cap altre camp
   };
 }
 

@@ -14,7 +14,87 @@ const db = admin.firestore();
 const LANG_MAP = { ca: 'CATALÀ', es: 'CASTELLANO', en: 'ENGLISH', fr: 'FRANÇAIS' };
 const MAX_VINS_CONTEXT = 25;
 
-// ─── 1. DETECCIÓ D'INTENCIÓ ───────────────────────────────────────────────────
+// ─── 1. CORRECTOR DE TYPOS (Levenshtein fuzzy) ───────────────────────────────
+// Vocabulari de referència: totes les paraules clau que el sistema ha d'entendre.
+// Quan l'usuari escriu "xatto", "perceves" o "paeja", les corregim automàticament.
+const VOCABULARI = [
+  // Plats catalans i espanyols
+  'xato', 'paella', 'fideuà', 'calçots', 'escalivada', 'escudella', 'canelons',
+  'botifarra', 'sobrassada', 'croquetes', 'gazpacho', 'cocido', 'fabada',
+  'suquet', 'cassola', 'estofat', 'arròs',
+  // Peixos i marisc
+  'percebes', 'bacallà', 'salmó', 'llagosta', 'gambes', 'musclo', 'ostra',
+  'calamar', 'sèpia', 'pop', 'lluc', 'llobarró', 'rap', 'navalla',
+  // Carns
+  'vedella', 'conill', 'costelles', 'entrecot', 'chuletón', 'pollastre',
+  'ànec', 'xai', 'porc', 'botifarra', 'foie',
+  // Ingredients
+  'trufa', 'bolets', 'formatge', 'pasta', 'risotto', 'pizza',
+  // Verbs i intencions
+  'maridar', 'maridatge', 'recomanar', 'suggereix', 'acompanyar', 'maridaje',
+  // Varietats de raïm
+  'tempranillo', 'garnacha', 'cabernet', 'chardonnay', 'riesling',
+  'albariño', 'syrah', 'merlot', 'pinot', 'moscatel',
+];
+
+// Normalitzem accents per comparar sense diferenciar é/e, à/a, etc.
+function normalitzar(s) {
+  return s.toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, ''); // elimina diacrítics
+}
+
+// Distància de Levenshtein entre dues cadenes
+function levenshtein(a, b) {
+  const m = a.length, n = b.length;
+  const dp = Array.from({ length: m + 1 }, (_, i) =>
+    Array.from({ length: n + 1 }, (_, j) => (i === 0 ? j : j === 0 ? i : 0))
+  );
+  for (let i = 1; i <= m; i++)
+    for (let j = 1; j <= n; j++)
+      dp[i][j] = a[i-1] === b[j-1]
+        ? dp[i-1][j-1]
+        : 1 + Math.min(dp[i-1][j], dp[i][j-1], dp[i-1][j-1]);
+  return dp[m][n];
+}
+
+// Índex normalitzat del vocabulari (calculat una sola vegada)
+const VOCABULARI_NORM = VOCABULARI.map(w => ({ original: w, norm: normalitzar(w) }));
+
+function corregirToken(token) {
+  const norm = normalitzar(token);
+
+  // Paraules curtes (≤3 lletres): no corregim, massa risc de falsos positius
+  if (norm.length <= 3) return token;
+
+  // Primer mirem si ja coincideix exactament amb alguna paraula del vocabulari
+  const exacte = VOCABULARI_NORM.find(v => v.norm === norm);
+  if (exacte) return exacte.original;
+
+  // Busquem la paraula del vocabulari més propera
+  let millorParaula = null;
+  let millorDist = Infinity;
+
+  for (const { original, norm: vnorm } of VOCABULARI_NORM) {
+    // Optimització: descartem si la diferència de longitud ja supera el llindar
+    if (Math.abs(norm.length - vnorm.length) > 2) continue;
+    const dist = levenshtein(norm, vnorm);
+    if (dist < millorDist) { millorDist = dist; millorParaula = original; }
+  }
+
+  // Llindar dinàmic: 1 error per cada 4 lletres (ex: "xatto"→dist 1, "paeja"→dist 2)
+  const llindar = Math.floor(norm.length / 4) + 1;
+  return (millorDist <= llindar && millorParaula) ? millorParaula : token;
+}
+
+function corregirTypos(text) {
+  return text
+    .split(/(\s+)/)
+    .map(token => /\s/.test(token) ? token : corregirToken(token))
+    .join('');
+}
+
+// ─── 2. DETECCIÓ D'INTENCIÓ ───────────────────────────────────────────────────
 function detectarIntencio(p) {
   const text = p.toLowerCase();
 
@@ -299,18 +379,22 @@ module.exports = async (req, res) => {
 
   const idiomaReal = LANG_MAP[(idioma || 'ca').toLowerCase().slice(0, 2)] || 'CATALÀ';
 
+  // Corregim typos ABANS de detectar intenció i buscar a Firebase
+  const preguntaCorregida = corregirTypos(pregunta.trim());
+
   try {
-    const intencio = detectarIntencio(pregunta);
+    const intencio = detectarIntencio(preguntaCorregida);
 
     const vins = intencio === 'vi'
-      ? await buscarViConcret(pregunta)
+      ? await buscarViConcret(preguntaCorregida)
       : await buscarVinsGeneral();
 
     if (!vins || vins.length === 0) {
       return res.status(200).json({ error: 'No hem trobat vins a la base de dades.' });
     }
 
-    const { system, user } = buildPrompt(intencio, idiomaReal, vins, pregunta);
+    // Passem la pregunta corregida a la IA perquè entengui millor el context
+    const { system, user } = buildPrompt(intencio, idiomaReal, vins, preguntaCorregida);
     let resultat = await cridarGroq(system, user);
     resultat = reconciliarImatges(resultat, vins);
 

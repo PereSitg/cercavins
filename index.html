@@ -1,100 +1,334 @@
-const admin = require('firebase-admin');
+<!DOCTYPE html>
+<html lang="ca">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Sommelier Digital</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🍷</text></svg>">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        :root { --gold: #d4af37; --gold-dim: rgba(212,175,55,0.15); --blanc: #ffffff; --card-bg: rgba(0,0,0,0.25); }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
 
-if (!admin.apps.length) {
-  admin.initializeApp({
-    credential: admin.credential.cert({
-      projectId: process.env.FIREBASE_PROJECT_ID,
-      clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-      privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-    }),
-  });
+        body {
+            background: radial-gradient(circle at center, #800020 0%, #3a000e 100%);
+            color: var(--blanc);
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            overflow-x: hidden;
+        }
+
+        /* ── Header ── */
+        header { text-align: center; padding: 60px 20px 30px; width: 100%; }
+        header h1 { font-size: clamp(2.2rem, 8vw, 3.5rem); font-weight: 800; }
+        .ia-focus { color: var(--gold); }
+        #subtitol { margin-top: 10px; opacity: 0.85; font-size: 1rem; }
+
+        /* ── Search ── */
+        .search-area { width: 95%; max-width: 700px; margin: 20px auto 0; }
+        .input-wrapper { width: 100%; position: relative; display: flex; align-items: center; }
+        #chat-input {
+            width: 100%; padding: 20px 60px 20px 30px;
+            border-radius: 50px; border: 1px solid rgba(255,255,255,0.2);
+            background: rgba(255,255,255,0.07); color: white;
+            font-size: 1.1rem; text-align: center; outline: none;
+            -webkit-appearance: none; transition: border 0.3s;
+        }
+        #chat-input:focus { border-color: var(--gold); }
+        #btn-veu {
+            position: absolute; right: 15px; background: none; border: none;
+            font-size: 1.5rem; cursor: pointer; padding: 10px;
+            display: flex; align-items: center; justify-content: center;
+        }
+        #btn-veu.listening { animation: pulse-gold 1.5s infinite; border-radius: 50%; }
+        @keyframes pulse-gold {
+            0%   { box-shadow: 0 0 0 0 rgba(212,175,55,0.4); }
+            70%  { box-shadow: 0 0 0 15px rgba(212,175,55,0); }
+            100% { box-shadow: 0 0 0 0 rgba(212,175,55,0); }
+        }
+
+        /* ── Response container ── */
+        #response-container {
+            width: 100%; margin-top: 30px;
+            background: rgba(255,255,255,0.07);
+            border-radius: 20px; padding: 28px;
+            display: none; backdrop-filter: blur(10px);
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+        }
+
+        /* ── Loading ── */
+        .loading { text-align: center; padding: 20px; opacity: 0.8; font-style: italic; }
+
+        /* ── Text blocks ── */
+        .bloc-text { font-size: 1.05rem; line-height: 1.8; margin-bottom: 20px; }
+        .etiqueta {
+            display: inline-block; font-size: 0.7rem; font-weight: 800;
+            letter-spacing: 0.1em; text-transform: uppercase;
+            color: var(--gold); border: 1px solid var(--gold);
+            border-radius: 20px; padding: 3px 12px; margin-bottom: 12px;
+        }
+
+        /* ── Vi principal (cas "vi") ── */
+        .vi-hero {
+            display: flex; gap: 24px; align-items: flex-start;
+            background: var(--card-bg); border-radius: 16px;
+            padding: 24px; margin-bottom: 24px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .vi-hero img {
+            width: 120px; height: 200px; object-fit: contain;
+            flex-shrink: 0; border-radius: 8px;
+        }
+        .vi-hero-info h2 { font-size: 1.3rem; font-weight: 800; color: var(--gold); margin-bottom: 6px; }
+        .vi-hero-info .do-badge {
+            font-size: 0.75rem; background: var(--gold-dim); color: var(--gold);
+            border-radius: 20px; padding: 2px 10px; display: inline-block; margin-bottom: 12px;
+        }
+        .vi-hero-info p { font-size: 0.95rem; line-height: 1.7; opacity: 0.9; }
+        .maridatge-list { margin-top: 14px; }
+        .maridatge-list span {
+            display: inline-block; background: rgba(255,255,255,0.08);
+            border-radius: 20px; padding: 4px 14px; margin: 4px 4px 0 0;
+            font-size: 0.85rem;
+        }
+
+        /* ── Plat ── */
+        .plat-header {
+            background: var(--card-bg); border-radius: 16px; padding: 20px 24px;
+            margin-bottom: 24px; border-left: 3px solid var(--gold);
+        }
+        .plat-header h2 { font-size: 1.2rem; font-weight: 800; color: var(--gold); margin-bottom: 8px; }
+        .plat-header p { font-size: 0.95rem; line-height: 1.7; opacity: 0.9; }
+
+        /* ── Grid de vins ── */
+        .vins-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px; width: 100%;
+        }
+        @media (max-width: 500px) { .vins-grid { grid-template-columns: 1fr; } }
+
+        .vi-card {
+            background: var(--card-bg); border-radius: 14px; padding: 18px;
+            text-align: center; border: 1px solid rgba(255,255,255,0.1);
+            display: flex; flex-direction: column; align-items: center; gap: 10px;
+            transition: transform 0.2s, border-color 0.2s;
+        }
+        .vi-card:hover { transform: translateY(-3px); border-color: var(--gold); }
+        .vi-card img {
+            height: 160px; max-width: 90%; object-fit: contain; border-radius: 6px;
+        }
+        .vi-card .nom { font-size: 0.85rem; font-weight: 800; color: var(--gold); line-height: 1.3; }
+        .vi-card .do  { font-size: 0.75rem; opacity: 0.6; margin-top: 2px; }
+        .vi-card .justificacio { font-size: 0.8rem; opacity: 0.85; line-height: 1.5; margin-top: 4px; }
+
+        /* ── Consell sommelier ── */
+        .consell {
+            margin-top: 24px; padding: 16px 20px;
+            background: var(--gold-dim); border-radius: 12px;
+            border-left: 3px solid var(--gold);
+            font-size: 0.9rem; line-height: 1.6; font-style: italic;
+        }
+        .consell::before { content: '🍷 '; }
+
+        /* ── Error ── */
+        .error-msg { text-align: center; padding: 20px; opacity: 0.8; color: #ff9999; }
+
+        /* ── Botó clear ── */
+        #btn-borrar {
+            display: block; margin: 28px auto 0;
+            padding: 12px 32px; border-radius: 50px;
+            border: 1px solid var(--gold); background: transparent;
+            color: var(--gold); cursor: pointer; transition: 0.3s;
+            font-family: inherit; font-size: 0.95rem;
+        }
+        #btn-borrar:hover { background: var(--gold-dim); }
+
+        footer { padding: 40px; opacity: 0.5; font-size: 0.8rem; text-align: center; margin-top: auto; }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>SommelierDig<span class="ia-focus">i</span>t<span class="ia-focus">a</span>l</h1>
+    <p id="subtitol"></p>
+</header>
+
+<main class="search-area">
+    <div class="input-wrapper">
+        <input type="text" id="chat-input" autocomplete="off">
+        <button id="btn-veu" aria-label="Cerca per veu">🎙️</button>
+    </div>
+    <div id="response-container">
+        <div id="output"></div>
+        <button id="btn-borrar"></button>
+    </div>
+</main>
+
+<footer><p id="footer-text"></p></footer>
+
+<script>
+// ── i18n ──────────────────────────────────────────────────────────────────────
+const i18n = {
+    ca: { subtitol: "El teu cercador de vins intel·ligent", placeholder: "Maridatge, un plat o un vi...", loading: "Consultant el celler...", btn: "Nova consulta", footer: "Pere Badia i Lorenz © 2026 · Tots els drets reservats", imgFallback: "Imatge no disponible" },
+    es: { subtitol: "Tu buscador de vinos inteligente",     placeholder: "Maridaje, un plato o un vino...", loading: "Consultando bodega...",  btn: "Nueva consulta",  footer: "Pere Badia i Lorenz © 2026 · Todos los derechos reservados", imgFallback: "Imagen no disponible" },
+    fr: { subtitol: "Votre moteur de recherche de vins",    placeholder: "Accord mets-vins, un plat...",  loading: "Consultation cave...",    btn: "Nouvelle recherche", footer: "Pere Badia i Lorenz © 2026 · Tous droits réservés", imgFallback: "Image non disponible" },
+    en: { subtitol: "Your intelligent wine search engine",  placeholder: "Pairing, a dish or a wine...", loading: "Consulting the cellar...", btn: "New search",      footer: "Pere Badia i Lorenz © 2026 · All rights reserved", imgFallback: "Image not available" },
+};
+
+const userLang = (navigator.language || 'ca').split('-')[0];
+const t = i18n[userLang] || i18n['ca'];
+
+const $ = id => document.getElementById(id);
+$('subtitol').textContent  = t.subtitol;
+$('chat-input').placeholder = t.placeholder;
+$('footer-text').textContent = t.footer;
+$('btn-borrar').textContent = t.btn;
+
+// ── Imatge amb fallback ───────────────────────────────────────────────────────
+const IMG_FALLBACK = 'https://images.vivino.com/thumbs/default_label_600x600.png';
+function imgTag(url, alt) {
+    const src = url || IMG_FALLBACK;
+    return `<img src="${src}" alt="${alt || ''}" onerror="this.src='${IMG_FALLBACK}'">`;
 }
 
-const db = admin.firestore();
+// ── Renderers per cada intenció ───────────────────────────────────────────────
+function renderVi(d) {
+    const vi = d.vi_principal || {};
+    const plats = (d.maridatge_suggerit || []).map(p => `<span>${p}</span>`).join('');
+    return `
+        <div class="etiqueta">Vi</div>
+        <div class="vi-hero">
+            ${imgTag(vi.imatge, vi.nom)}
+            <div class="vi-hero-info">
+                <h2>${vi.nom || ''}</h2>
+                <span class="do-badge">${vi.do || ''}</span>
+                <p>${d.descripcio || ''}</p>
+                ${plats ? `<div class="maridatge-list">${plats}</div>` : ''}
+            </div>
+        </div>`;
+}
 
-module.exports = async (req, res) => {
-  if (req.method !== 'POST') return res.status(405).send('Mètode no permès');
+function renderPlat(d) {
+    const plat = d.plat || {};
+    const cardsHtml = (d.vins_recomanats || []).slice(0, 3).map(v => `
+        <div class="vi-card">
+            ${imgTag(v.imatge, v.nom)}
+            <div class="nom">${v.nom || ''}</div>
+            <div class="do">${v.do || ''}</div>
+            <div class="justificacio">${v.justificacio || ''}</div>
+        </div>`).join('');
 
-  try {
-    const { pregunta, idioma } = req.body;
-    const p = (pregunta || "").toLowerCase();
-    const langMap = { 'ca': 'CATALÀ', 'es': 'CASTELLANO', 'en': 'ENGLISH', 'fr': 'FRANÇAIS' };
-    const idiomaReal = langMap[(idioma || 'ca').toLowerCase().slice(0, 2)] || 'CATALÀ';
+    return `
+        <div class="etiqueta">Plat típic</div>
+        <div class="plat-header">
+            <h2>${plat.nom || ''}</h2>
+            <p>${plat.descripcio || ''}</p>
+        </div>
+        <div class="vins-grid">${cardsHtml}</div>`;
+}
 
-    // 1. ANÀLISI DE LA CONSULTA (Keywords)
-    const paraules = p.split(/[ ,.!?]+/).filter(w => w.length > 2);
-    
-    // 2. RECUPERACIÓ INTEL·LIGENT DE FIREBASE
-    // Agafem una mostra prou gran per filtrar en memòria i no saturar la BD amb consultes complexes
-    const snapshot = await db.collection('cercavins').limit(200).get();
-    
-    const totsElsVins = snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data(),
-      cerca: `${doc.data().nom} ${doc.data().do} ${doc.data().varietat} ${doc.data().tipus}`.toLowerCase()
-    })).filter(v => v.imatge && v.imatge.startsWith('http') && !v.imatge.includes('viniteca_logo'));
+function renderMaridatge(d) {
+    const cardsHtml = (d.vins_recomanats || []).slice(0, 3).map(v => `
+        <div class="vi-card">
+            ${imgTag(v.imatge, v.nom)}
+            <div class="nom">${v.nom || ''}</div>
+            <div class="do">${v.do || ''}</div>
+            <div class="justificacio">${v.justificacio || ''}</div>
+        </div>`).join('');
 
-    // 3. FILTRATGE PRIORITZAT
-    let vinsSeleccionats = totsElsVins.sort((a, b) => {
-      // Prioritat A: Si l'usuari pregunta per un nom de vi específic
-      const aMatch = paraules.some(paraula => a.cerca.includes(paraula));
-      const bMatch = paraules.some(paraula => b.cerca.includes(paraula));
-      if (aMatch && !bMatch) return -1;
-      if (!aMatch && bMatch) return 1;
-      
-      // Prioritat B: Maridatge lògic segons paraules clau del plat
-      const esPeix = p.includes('peix') || p.includes('marisc') || p.includes('percebe') || p.includes('arròs');
-      if (esPeix) {
-        if (a.tipus?.toLowerCase().includes('blanc') && !b.tipus?.toLowerCase().includes('blanc')) return -1;
-      }
-      return 0;
-    }).slice(0, 15); // Només enviem 15 candidats a la IA per no saturar el context
+    const consell = d.consell_sommelier
+        ? `<div class="consell">${d.consell_sommelier}</div>` : '';
 
-    // 4. PROMPT PER A GROQ (Estructura de triple funció)
-    const promptSystem = `Ets un Sommelier expert. Respon en ${idiomaReal}.
-    OBJECTIUS:
-    1. Si pregunten per un VI CONCRET: Explica les seves característiques basant-te en les dades.
-    2. Si pregunten per un PLAT: Explica breument què és el plat i proposa 3 maridatges.
-    3. Si és un maridatge general: Proposa 3 opcions (2 alta gamma i 1 econòmic).
+    return `
+        <div class="etiqueta">Maridatge</div>
+        <div class="bloc-text">${d.introduccio || ''}</div>
+        <div class="vins-grid">${cardsHtml}</div>
+        ${consell}`;
+}
 
-    REGLA D'OR: Usa NOMÉS els vins del JSON que et passo. No t'inventis vins ni URLs d'imatge.
-    FORMAT: Usa <span class="nom-vi-destacat">NOM</span> i <span class="text-destacat-groc">DO</span>.
-    RETORNA SEMPRE AQUEST JSON: {"explicacio": "...", "vins_triats": [{"nom": "...", "imatge": "..."}]}`;
+// ── Renderitzador principal ───────────────────────────────────────────────────
+function renderResposta(data) {
+    const output = $('output');
 
-    const groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${process.env.GROQ_API_KEY?.trim()}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        model: 'llama-3.1-8b-instant',
-        response_format: { type: "json_object" },
-        messages: [
-          { role: 'system', content: promptSystem },
-          { role: 'user', content: `Consulta: ${pregunta}. Llista de vins reals: ${JSON.stringify(vinsSeleccionats)}` }
-        ],
-        temperature: 0.3
-      })
+    if (data.error) {
+        output.innerHTML = `<div class="error-msg">${data.error}</div>`;
+        return;
+    }
+
+    const r = data.resposta;
+    if (!r || !r.tipus_resposta) {
+        output.innerHTML = `<div class="error-msg">No hem pogut processar la resposta.</div>`;
+        return;
+    }
+
+    switch (r.tipus_resposta) {
+        case 'vi':       output.innerHTML = renderVi(r);       break;
+        case 'plat':     output.innerHTML = renderPlat(r);     break;
+        case 'maridatge': output.innerHTML = renderMaridatge(r); break;
+        default:         output.innerHTML = `<div class="error-msg">Tipus de resposta desconegut.</div>`;
+    }
+}
+
+// ── Fetch principal ───────────────────────────────────────────────────────────
+async function processarCerca(pregunta) {
+    if (!pregunta || !pregunta.trim()) return;
+
+    $('response-container').style.display = 'block';
+    $('output').innerHTML = `<div class="loading">🍷 ${t.loading}</div>`;
+
+    try {
+        const res = await fetch('/api/sommelier', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ pregunta: pregunta.trim(), idioma: userLang }),
+        });
+
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        renderResposta(data);
+
+    } catch (err) {
+        console.error('[frontend] Error:', err);
+        $('output').innerHTML = `<div class="error-msg">Error de connexió. Torna a intentar-ho.</div>`;
+    }
+}
+
+// ── Events ────────────────────────────────────────────────────────────────────
+$('chat-input').addEventListener('keypress', e => {
+    if (e.key === 'Enter') processarCerca($('chat-input').value);
+});
+
+$('btn-borrar').addEventListener('click', () => {
+    $('response-container').style.display = 'none';
+    $('chat-input').value = '';
+    $('chat-input').focus();
+});
+
+// ── Veu ───────────────────────────────────────────────────────────────────────
+const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+if (SpeechRecognition) {
+    const recognition = new SpeechRecognition();
+    const langMap = { ca: 'ca-ES', es: 'es-ES', fr: 'fr-FR', en: 'en-US' };
+    $('btn-veu').addEventListener('click', () => {
+        recognition.lang = langMap[userLang] || 'ca-ES';
+        recognition.start();
+        $('btn-veu').classList.add('listening');
     });
-
-    const data = await groqResponse.json();
-    const contingut = JSON.parse(data.choices[0].message.content);
-    
-    // 5. RECONSTRUCCIÓ I ENVIAMENT (Xarxa de seguretat per a les fotos)
-    const respostaVins = (contingut.vins_triats || []).map(vIA => {
-      const real = totsElsVins.find(r => r.nom === vIA.nom) || vinsSeleccionats[0];
-      return { nom: real.nom, imatge: real.imatge };
-    }).slice(0, 3);
-
-    res.status(200).json({ 
-      resposta: `${contingut.explicacio} ||| ${JSON.stringify(respostaVins)}` 
-    });
-
-  } catch (error) {
-    console.error(error);
-    res.status(200).json({ 
-      resposta: "Ho sento, el sommelier està decantant un vi. Torna-ho a provar! ||| []" 
-    });
-  }
-};
+    recognition.onresult = e => {
+        const text = e.results[0][0].transcript;
+        $('chat-input').value = text;
+        $('btn-veu').classList.remove('listening');
+        processarCerca(text);
+    };
+    recognition.onend = () => $('btn-veu').classList.remove('listening');
+    recognition.onerror = () => $('btn-veu').classList.remove('listening');
+} else {
+    $('btn-veu').style.display = 'none';
+}
+</script>
+</body>
+</html>

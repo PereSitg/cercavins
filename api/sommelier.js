@@ -24,7 +24,7 @@ module.exports = async (req, res) => {
 
     const paraulesClau = p.split(/[ ,.!?]+/).filter(w => w.length > 2);
 
-    // 1. Recuperació àmplia per trobar vins específics (com el Cune)
+    // 1. Recuperació de vins (Límit de 100 per categoria)
     const [premSnap, econSnap] = await Promise.all([
       db.collection('cercavins').where('preu', '>', 35).limit(100).get(),
       db.collection('cercavins').where('preu', '>=', 7).where('preu', '<=', 18).limit(100).get()
@@ -37,38 +37,31 @@ module.exports = async (req, res) => {
           return { 
             nom: d.nom || "", 
             imatge: d.imatge || "", 
-            do_real: d.do || "DO",
+            do: d.do || "DO",
             info: `${d.nom} ${d.do} ${d.varietat || ''} ${d.tipus || ''}`.toLowerCase()
           };
         })
-        .filter(v => {
-          // FILTRE DE SEGURETAT: URL vàlida i NO és el logo de Vila Viniteca
-          const teFotoReal = v.imatge.startsWith('http') && !v.imatge.includes('viniteca');
-          return teFotoReal;
-        })
+        .filter(v => v.imatge.startsWith('http') && !v.imatge.includes('viniteca'))
         .sort((a, b) => {
-          // PRIORITAT: Si l'usuari busca "Cune", aquests vins van primer
+          // PRIORITAT: Si l'usuari pregunta per un nom (ex: "Cune"), surt primer
           const aMatch = paraulesClau.some(clau => a.info.includes(clau));
           const bMatch = paraulesClau.some(clau => b.info.includes(clau));
           if (aMatch && !bMatch) return -1;
           if (!aMatch && bMatch) return 1;
           return Math.random() - 0.5;
-        })
-        .slice(0, 15);
+        });
     };
 
     const llistaAlta = filtrarVins(premSnap);
     const llistaEcon = filtrarVins(econSnap);
 
-    // 2. PROMPT AMB INSTRUCCIONS DE SEGURETAT
+    // Si no trobem res, agafem els primers per defecte per evitar que falli
+    const llistaFinal = [...llistaAlta.slice(0, 15), ...llistaEcon.slice(0, 15)];
+
+    // 2. Prompt per a Groq
     const promptSystem = `Ets un Sommelier d'elit. Respon en ${idiomaReal}. 
     Escriu unes 300 paraules. Sigues molt expert.
-    
-    IMPORTANT:
-    - Tria EXACTAMENT 3 vins de la llista JSON que et passo.
-    - Si l'usuari pregunta per un vi (ex: Cune), l'HAS de triar i explicar.
-    - Usa la URL de la "imatge" tal qual. No t'inventis vins.
-    
+    REGLA: Tria EXACTAMENT 3 vins de la llista JSON. No t'inventis noms ni fotos.
     FORMAT: <span class="nom-vi-destacat">NOM</span> i <span class="text-destacat-groc">DO</span>.`;
 
     const groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -82,21 +75,31 @@ module.exports = async (req, res) => {
         response_format: { type: "json_object" },
         messages: [
           { role: 'system', content: promptSystem },
-          { role: 'user', content: `Vins: ${JSON.stringify({alta: llistaAlta, econ: llistaEcon})}. Consulta: ${pregunta}` }
+          { role: 'user', content: `Vins: ${JSON.stringify(llistaFinal)}. Pregunta: ${pregunta}` }
         ],
         temperature: 0.2
       })
     });
 
     const data = await groqResponse.json();
+    if (!data.choices) throw new Error("Error en Groq");
+
     const contingut = JSON.parse(data.choices[0].message.content);
     
-    // 3. Resposta Final forçant el format JSON que ja tens al frontend
+    // 3. Verificació final d'imatges
+    const vinsTriats = (contingut.vins_triats || []).slice(0, 3).map(vIA => {
+      const original = llistaFinal.find(f => f.nom === vIA.nom) || llistaFinal[0];
+      return { nom: original.nom, imatge: original.imatge };
+    });
+
     res.status(200).json({ 
-      resposta: `${contingut.explicacio} ||| ${JSON.stringify(contingut.vins_triats.slice(0, 3))}` 
+      resposta: `${contingut.explicacio} ||| ${JSON.stringify(vinsTriats)}` 
     });
 
   } catch (error) {
-    res.status(200).json({ resposta: `Error en el servei de sommelier. ||| []` });
+    console.error("Error detallat:", error);
+    res.status(200).json({ 
+      resposta: `Ho sento, estic triant les millors copes per a tu. Torna a preguntar! ||| []` 
+    });
   }
 };

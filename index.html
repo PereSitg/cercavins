@@ -131,7 +131,36 @@
         }
         #btn-borrar:hover { background: var(--gold-dim); }
 
-        footer { padding: 40px; opacity: 0.5; font-size: 0.8rem; text-align: center; margin-top: auto; }
+        /* ── Beta banner ── */
+        .beta-banner {
+            display: inline-flex; align-items: center; gap: 8px;
+            background: rgba(212,175,55,0.08);
+            border: 1px solid rgba(212,175,55,0.25);
+            border-radius: 20px; padding: 5px 16px;
+            font-size: 0.7rem; font-weight: 700; letter-spacing: 0.1em;
+            color: rgba(212,175,55,0.75); text-transform: uppercase;
+            margin-bottom: 16px;
+        }
+        .beta-dot {
+            width: 6px; height: 6px; border-radius: 50%;
+            background: var(--gold); flex-shrink: 0;
+            animation: parpelleig 2s ease-in-out infinite;
+        }
+        @keyframes parpelleig {
+            0%, 100% { opacity: 1; } 50% { opacity: 0.15; }
+        }
+
+        /* ── Footer ── */
+        footer {
+            padding: 30px 20px 40px; font-size: 0.75rem;
+            text-align: center; margin-top: auto; line-height: 2;
+            opacity: 0.5;
+        }
+        .disclaimer {
+            margin-top: 4px; font-size: 0.68rem; opacity: 0.75;
+            max-width: 480px; margin-left: auto; margin-right: auto;
+            line-height: 1.6;
+        }
     </style>
 </head>
 <body>
@@ -139,6 +168,9 @@
 <header>
     <h1>SommelierDig<span class="ia-focus">i</span>t<span class="ia-focus">a</span>l</h1>
     <p id="subtitol"></p>
+    <div style="margin-top:16px;">
+        <span class="beta-banner"><span class="beta-dot"></span>🧪 Beta · En construcció</span>
+    </div>
 </header>
 
 <main class="search-area">
@@ -152,14 +184,17 @@
     </div>
 </main>
 
-<footer><p id="footer-text"></p></footer>
+<footer>
+    <p id="footer-text"></p>
+    <p class="disclaimer" id="disclaimer-text"></p>
+</footer>
 
 <script>
 const i18n = {
-    ca: { subtitol: "El teu cercador de vins intel·ligent", placeholder: "Maridatge, un plat o un vi...", loading: "Consultant el celler...", btn: "Nova consulta", footer: "Pere Badia i Lorenz © 2026 · Tots els drets reservats" },
-    es: { subtitol: "Tu buscador de vinos inteligente",     placeholder: "Maridaje, un plato o un vino...", loading: "Consultando bodega...",  btn: "Nueva consulta",  footer: "Pere Badia i Lorenz © 2026 · Todos los derechos reservados" },
-    fr: { subtitol: "Votre moteur de recherche de vins",    placeholder: "Accord mets-vins, un plat...",  loading: "Consultation cave...",    btn: "Nouvelle recherche", footer: "Pere Badia i Lorenz © 2026 · Tous droits réservés" },
-    en: { subtitol: "Your intelligent wine search engine",  placeholder: "Pairing, a dish or a wine...", loading: "Consulting the cellar...", btn: "New search",      footer: "Pere Badia i Lorenz © 2026 · All rights reserved" },
+    ca: { subtitol: "El teu cercador de vins intel·ligent", placeholder: "Maridatge, un plat o un vi...", loading: "Consultant el celler...", btn: "Nova consulta", footer: "Pere Badia i Lorenz © 2026 · Tots els drets reservats", disclaimer: "Les recomanacions les genera una IA i poden contenir errors. L'autor no es responsabilitza de les decisions preses basant-se en aquesta informació." },
+    es: { subtitol: "Tu buscador de vinos inteligente",     placeholder: "Maridaje, un plato o un vino...", loading: "Consultando bodega...",  btn: "Nueva consulta",  footer: "Pere Badia i Lorenz © 2026 · Todos los derechos reservados", disclaimer: "Las recomendaciones las genera una IA y pueden contener errores. El autor no se responsabiliza de las decisiones tomadas basándose en esta información." },
+    fr: { subtitol: "Votre moteur de recherche de vins",    placeholder: "Accord mets-vins, un plat...",  loading: "Consultation cave...",    btn: "Nouvelle recherche", footer: "Pere Badia i Lorenz © 2026 · Tous droits réservés", disclaimer: "Les recommandations sont générées par une IA et peuvent contenir des erreurs. L'auteur décline toute responsabilité quant aux décisions prises sur la base de ces informations." },
+    en: { subtitol: "Your intelligent wine search engine",  placeholder: "Pairing, a dish or a wine...", loading: "Consulting the cellar...", btn: "New search",      footer: "Pere Badia i Lorenz © 2026 · All rights reserved", disclaimer: "Recommendations are AI-generated and may contain errors. The author is not responsible for any decisions made based on this information." },
 };
 
 const userLang = (navigator.language || 'ca').split('-')[0];
@@ -169,6 +204,7 @@ const $ = id => document.getElementById(id);
 $('subtitol').textContent   = t.subtitol;
 $('chat-input').placeholder = t.placeholder;
 $('footer-text').textContent = t.footer;
+$('disclaimer-text').textContent = t.disclaimer;
 $('btn-borrar').textContent  = t.btn;
 
 // ── Filtre DO: mai mostrem noms de botiga ─────────────────────────────────────

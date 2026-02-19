@@ -27,7 +27,7 @@ const VOCABULARI = [
   'calamar', 'sèpia', 'pop', 'lluc', 'llobarró', 'rap', 'navalla',
   // Carns
   'vedella', 'conill', 'costelles', 'entrecot', 'chuletón', 'pollastre',
-  'ànec', 'xai', 'porc', 'botifarra', 'foie',
+  'ànec', 'pato', 'pavo', 'xai', 'porc', 'botifarra', 'foie',
   // Ingredients
   'trufa', 'bolets', 'formatge', 'pasta', 'risotto', 'pizza',
   // Verbs i intencions
@@ -112,7 +112,7 @@ function detectarIntencio(p) {
     'rap', 'lluc', 'llobarró', 'percebes', 'navalla', 'musclo', 'ostra',
     'gamba', 'llagosta', 'sèpia', 'pop', 'calamar', 'pizza', 'pasta',
     'risotto', 'chuletón', 'entrecot', 'filet', 'vedella', 'porc', 'xai',
-    'ànec', 'pollastre', 'foie', 'trufa', 'bolets', 'formatge',
+    'ànec', 'pato', 'pavo', 'pollastre', 'foie', 'trufa', 'bolets', 'formatge',
     'sobrassada', 'escudella', 'canelons', 'suquet', 'arròs', 'cassola',
     'estofat', 'guisat', 'peix', 'marisc',
   ];

@@ -299,14 +299,17 @@ FORMAT JSON OBLIGATORI:
     return {
       system: `${base}
 
-L'usuari pregunta per un plat típic. Tasca:
-1. Explica breument el plat (~80 paraules): origen, ingredients principals, sabor i textura.
-2. Tria EXACTAMENT 3 vins de la llista que maridin perfectament, justificant cada elecció en 1 frase.
+L'usuari pregunta per un plat típic O per un ingredient/carn (pato, vedella, percebes...). Tasca:
+1. Si és un PLAT TÍPIC amb nom propi (xato, paella, gazpacho...):
+   - Explica breument el plat (~60 paraules): origen, ingredients principals, sabor i textura.
+2. Si és un INGREDIENT/CARN (pato, vedella, percebes, pollastre...):
+   - NO t'inventis un plat. Simplement descriu l'ingredient en 1-2 frases (ex: "El pato es una carn saborosa i versàtil").
+3. Tria EXACTAMENT 3 vins de la llista que maridin perfectament, justificant cada elecció en 1 frase.
 
 FORMAT JSON OBLIGATORI:
 {
   "tipus_resposta": "plat",
-  "plat": { "nom": "nom del plat", "descripcio": "descripció en ${idioma}" },
+  "plat": { "nom": "nom del plat o ingredient", "descripcio": "descripció breu en ${idioma}" },
   "vins_recomanats": [
     { "nom": "NOM EXACTE", "do": "...", "imatge": "URL EXACTA", "justificacio": "1 frase en ${idioma}" },
     { "nom": "NOM EXACTE", "do": "...", "imatge": "URL EXACTA", "justificacio": "1 frase en ${idioma}" },
